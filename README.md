@@ -80,58 +80,38 @@ Built for the **0G APAC Hackathon 2026**, targeting Track 1 (Agent Infrastructur
 
 ---
 
-## Setup
+## Deployment Guide (Zero-Cost / No Credit Card)
 
-### 1. Clone the repository
+This project is optimized for deployment using free tiers that do not require a credit card.
 
-```bash
-git clone https://github.com/your-org/mirrormind.git
-cd mirrormind
-```
+### 1. Databases
+*   **PostgreSQL:** Use [Neon.tech](https://neon.tech/). Copy your `DATABASE_URL`.
+*   **Redis:** Use [Upstash.com](https://upstash.com/). Copy your `REDIS_URL`.
 
-### 2. Configure environment variables
+### 2. Backend (Render)
+Deploy as two separate **Web Services**:
 
-```bash
-cp .env.example .env
-cp frontend/.env.example frontend/.env.local
-```
+**API Service:**
+- **Build Command:** `npm install && npm run build --workspace=api`
+- **Start Command:** `npm run start --workspace=api`
+- **Env Vars:** Add `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `OG_RPC_URL`.
 
-Edit `.env` and `frontend/.env.local` with your actual values. See the [Environment Variables](#environment-variables) section for details.
+**ML Service:**
+- **Build Command:** `pip install -r ml/requirements.txt`
+- **Start Command:** `python ml/main.py`
+- **Env Vars:** Set `PORT=8000`.
 
-### 3. Install dependencies
+### 3. Frontend (Vercel)
+- Connect repo, select `frontend` folder.
+- **Env Vars:** Set `NEXT_PUBLIC_API_URL` to your Render API URL.
 
-```bash
-# Install Node.js dependencies (api + frontend workspaces)
-npm install
+---
 
-# Install Python dependencies
-cd ml && pip install -r requirements.txt && cd ..
+## Local Development (Terminal)
 
-# Install Foundry dependencies
-cd contracts && forge install && cd ..
-```
-
-### 4. Start all services
-
-```bash
-docker compose up -d
-```
-
-This starts PostgreSQL, Redis, the API server, and the ML microservice.
-
-### 5. Run database migrations
-
-```bash
-cd api && npm run db:migrate && cd ..
-```
-
-### 6. Start the frontend (development)
-
-```bash
-npm run dev:frontend
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+1. **Install dependencies:** `npm install`
+2. **Setup .env:** Use the cloud database URLs in your local `.env`.
+3. **Run all:** `npm run dev:all`
 
 ---
 
