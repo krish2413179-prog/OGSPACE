@@ -1,0 +1,8 @@
+# This directory contains Foundry dependencies installed via `forge install`.
+# Run the following commands to install required libraries:
+#
+#   forge install OpenZeppelin/openzeppelin-contracts
+#   forge install OpenZeppelin/openzeppelin-contracts-upgradeable
+#   forge install foundry-rs/forge-std
+#
+# These are listed in .gitmodules after installation.

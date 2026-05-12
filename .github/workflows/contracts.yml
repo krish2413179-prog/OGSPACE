@@ -1,0 +1,30 @@
+name: Contracts CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Foundry Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install dependencies
+        working-directory: contracts
+        run: forge install
+
+      - name: Run Foundry tests
+        working-directory: contracts
+        run: forge test --fuzz-runs 1000 -v

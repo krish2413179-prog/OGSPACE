@@ -1,0 +1,31 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+cache_path = "cache"
+
+# Compiler settings
+solc_version = "0.8.24"
+optimizer = true
+optimizer_runs = 200
+via_ir = false
+
+# Fuzz testing settings
+[profile.default.fuzz]
+runs = 256
+max_test_rejects = 65536
+seed = "0x1"
+
+[profile.ci.fuzz]
+runs = 1000
+
+# RPC endpoints
+[rpc_endpoints]
+og_galileo = "${OG_RPC_URL}"
+og_galileo_public = "https://evmrpc-testnet.0g.ai"
+
+# Etherscan-compatible verification
+[etherscan]
+og_galileo = { key = "${ETHERSCAN_API_KEY}", url = "https://chainscan-galileo.0g.ai/api" }

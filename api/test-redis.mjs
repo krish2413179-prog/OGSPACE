@@ -1,0 +1,14 @@
+import Redis from "ioredis";
+console.log("1. Creating Redis client...");
+const redis = new Redis("redis://localhost:6379", { lazyConnect: true });
+redis.on("connect", () => console.log("2. Redis connected"));
+redis.on("error", (e) => console.log("Redis error:", e.message));
+console.log("3. Connecting...");
+await redis.connect();
+console.log("4. Done - setting key...");
+await redis.set("test", "hello");
+const val = await redis.get("test");
+console.log("5. Got:", val);
+await redis.quit();
+console.log("6. Quit");
+process.exit(0);

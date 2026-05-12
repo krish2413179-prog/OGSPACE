@@ -1,0 +1,223 @@
+/**
+ * ogIndexer — core indexing logic for 0G Chain.
+ *
+ * Fetches transactions for a wallet address using the viem ogClient,
+ * classifies each transaction, and upserts into the wallet_actions table
+ * via Drizzle ORM (deduplicating by tx_hash using ON CONFLICT DO NOTHING).
+ *
+ * Requirements: 2.2, 2.4, 2.5, 2.8
+ */
+
+import { ogClient } from "../../lib/viemClient.js";
+import { db } from "../../plugins/db.js";
+import { walletActions } from "../../db/schema.js";
+import { classifyTransaction } from "./classifier.js";
+import type { Address, Hash } from "viem";
+
+export interface IndexingProgress {
+  indexed: number;
+  total: number;
+  percent: number;
+}
+
+export interface IndexTransactionResult {
+  txHash: string;
+  actionType: string;
+  isNew: boolean;
+}
+
+/**
+ * Retry an async operation up to `maxRetries` times with exponential backoff.
+ * Delays: 1s, 2s, 4s.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  baseDelayMs = 1000
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
+const BLOCK_PAGE_SIZE = 2000n;
+
+export async function fetchWalletTransactionHashes(
+  walletAddress: Address,
+  fromBlock: bigint,
+  toBlock: bigint,
+  onProgress?: (progress: IndexingProgress) => void
+): Promise<Hash[]> {
+  const hashes: Hash[] = [];
+  const totalBlocks = toBlock - fromBlock + 1n;
+  let scanned = 0n;
+
+  for (let start = fromBlock; start <= toBlock; start += BLOCK_PAGE_SIZE) {
+    const end =
+      start + BLOCK_PAGE_SIZE - 1n < toBlock
+        ? start + BLOCK_PAGE_SIZE - 1n
+        : toBlock;
+
+    const blockNumbers: bigint[] = [];
+    for (let b = start; b <= end; b++) blockNumbers.push(b);
+
+    const BATCH = 10;
+    for (let i = 0; i < blockNumbers.length; i += BATCH) {
+      const batch = blockNumbers.slice(i, i + BATCH);
+      const blocks = await withRetry(() =>
+        Promise.all(
+          batch.map((blockNumber) =>
+            ogClient.getBlock({ blockNumber, includeTransactions: true })
+          )
+        )
+      );
+
+      for (const block of blocks) {
+        if (!block.transactions) continue;
+        for (const txOrHash of block.transactions) {
+          if (typeof txOrHash === "object" && txOrHash !== null) {
+            const fullTx = txOrHash as { from?: string; to?: string | null; hash: Hash };
+            const fromMatch = fullTx.from?.toLowerCase() === walletAddress.toLowerCase();
+            const toMatch = fullTx.to?.toLowerCase() === walletAddress.toLowerCase();
+            if (fromMatch || toMatch) hashes.push(fullTx.hash);
+          }
+        }
+      }
+    }
+
+    scanned += end - start + 1n;
+    if (onProgress) {
+      const percent = Number((scanned * 100n) / totalBlocks);
+      onProgress({ indexed: hashes.length, total: -1, percent });
+    }
+  }
+
+  return hashes;
+}
+
+export async function indexTransaction(
+  txHash: Hash,
+  userId: string,
+  walletAddress: string,
+  chainId: number
+): Promise<IndexTransactionResult> {
+  const [rawTx, receipt] = await withRetry(() =>
+    Promise.all([
+      ogClient.getTransaction({ hash: txHash }),
+      ogClient.getTransactionReceipt({ hash: txHash }),
+    ])
+  );
+
+  const block = await withRetry(() =>
+    ogClient.getBlock({ blockNumber: rawTx.blockNumber! })
+  );
+
+  const actionType = classifyTransaction({
+    hash: rawTx.hash,
+    from: rawTx.from,
+    to: rawTx.to ?? null,
+    input: rawTx.input ?? null,
+    value: rawTx.value?.toString() ?? null,
+    protocol: null,
+    functionName: null,
+  });
+
+  const result = await db
+    .insert(walletActions)
+    .values({
+      userId,
+      walletAddress: walletAddress.toLowerCase(),
+      chainId,
+      txHash: rawTx.hash,
+      actionType,
+      protocol: null,
+      assetIn: null,
+      assetOut: null,
+      amountUsd: null,
+      gasUsed: receipt.gasUsed ? Number(receipt.gasUsed) : null,
+      blockNumber: Number(rawTx.blockNumber!),
+      blockTimestamp: new Date(Number(block.timestamp) * 1000),
+      rawData: {
+        hash: rawTx.hash,
+        from: rawTx.from,
+        to: rawTx.to,
+        value: rawTx.value?.toString(),
+        input: rawTx.input,
+        blockNumber: rawTx.blockNumber?.toString(),
+        nonce: rawTx.nonce,
+      },
+    })
+    .onConflictDoNothing({ target: walletActions.txHash })
+    .returning({ id: walletActions.id });
+
+  return { txHash: rawTx.hash, actionType, isNew: result.length > 0 };
+}
+
+export interface FullIndexOptions {
+  userId: string;
+  walletAddress: Address;
+  chainId: number;
+  onProgress?: (progress: IndexingProgress) => void;
+}
+
+export async function fullIndex(options: FullIndexOptions): Promise<{
+  total: number;
+  newRecords: number;
+}> {
+  const { userId, walletAddress, chainId, onProgress } = options;
+  const currentBlock = await withRetry(() => ogClient.getBlockNumber());
+  const hashes = await fetchWalletTransactionHashes(walletAddress, 0n, currentBlock, onProgress);
+
+  let newRecords = 0;
+  for (let i = 0; i < hashes.length; i++) {
+    const result = await indexTransaction(hashes[i], userId, walletAddress, chainId);
+    if (result.isNew) newRecords++;
+    if (onProgress) {
+      const percent = Math.round(((i + 1) / hashes.length) * 100);
+      onProgress({ indexed: i + 1, total: hashes.length, percent });
+    }
+  }
+
+  return { total: hashes.length, newRecords };
+}
+
+export interface IncrementalIndexOptions {
+  userId: string;
+  walletAddress: Address;
+  chainId: number;
+  fromBlock: bigint;
+  onProgress?: (progress: IndexingProgress) => void;
+}
+
+export async function incrementalIndex(options: IncrementalIndexOptions): Promise<{
+  total: number;
+  newRecords: number;
+  latestBlock: bigint;
+}> {
+  const { userId, walletAddress, chainId, fromBlock, onProgress } = options;
+  const currentBlock = await withRetry(() => ogClient.getBlockNumber());
+
+  if (fromBlock > currentBlock) {
+    return { total: 0, newRecords: 0, latestBlock: currentBlock };
+  }
+
+  const hashes = await fetchWalletTransactionHashes(walletAddress, fromBlock, currentBlock, onProgress);
+
+  let newRecords = 0;
+  for (const hash of hashes) {
+    const result = await indexTransaction(hash, userId, walletAddress, chainId);
+    if (result.isNew) newRecords++;
+  }
+
+  return { total: hashes.length, newRecords, latestBlock: currentBlock };
+}

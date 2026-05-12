@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+package mirrormind;
+
+option python_package = "ml.proto";
+
+service BehavioralModelService {
+  rpc TrainModel (TrainModelRequest) returns (TrainModelResponse);
+  rpc GetModelInfo (GetModelInfoRequest) returns (GetModelInfoResponse);
+}
+
+message WalletAction {
+  string tx_hash = 1;
+  string action_type = 2;   // TRADE | GOVERNANCE_VOTE | DEFI_POSITION | NFT_PURCHASE | LIQUIDITY_MOVE | OTHER
+  string protocol = 3;
+  string asset_in = 4;
+  string asset_out = 5;
+  double amount_usd = 6;
+  int64 block_timestamp = 7; // Unix seconds
+  int64 block_number = 8;
+}
+
+message ModelDimensions {
+  int32 risk_profile = 1;        // 64
+  int32 timing_patterns = 2;     // 64
+  int32 protocol_preferences = 3; // 128
+  int32 asset_behavior = 4;      // 128
+  int32 decision_context = 5;    // 128
+  int32 total = 6;               // 512
+}
+
+message TrainModelRequest {
+  string wallet_address = 1;
+  repeated WalletAction actions = 2;
+  int32 model_version = 3;
+}
+
+message TrainModelResponse {
+  bytes vector = 1;              // 512 float32 values, little-endian
+  double performance_score = 2;  // 0.0 - 100.0
+  int32 model_version = 3;
+  ModelDimensions dimensions = 4;
+  string model_id = 5;           // UUID
+}
+
+message GetModelInfoRequest {
+  string wallet_address = 1;
+}
+
+message GetModelInfoResponse {
+  string wallet_address = 1;
+  int32 model_version = 2;
+  double performance_score = 3;
+  ModelDimensions dimensions = 4;
+  int64 trained_at = 5;
+}

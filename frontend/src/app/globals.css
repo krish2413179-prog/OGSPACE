@@ -1,0 +1,66 @@
+/* MirrorMind — Global Styles
+ * Strict monochromatic palette: black / white / mid-grey
+ * No color accents anywhere.
+ * Requirements: 16.1, 16.2, 16.4
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-bg:        #000000;
+  --color-fg:        #ffffff;
+  --color-secondary: #888888;
+  --color-border:    #ffffff;
+  --color-border-dim:#333333;
+  --font-mono:       'Space Mono', 'Courier New', monospace;
+  --radius:          0px; /* sharp corners everywhere */
+}
+
+html, body {
+  background-color: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-fg);
+  text-decoration: underline;
+}
+
+a:hover {
+  color: var(--color-secondary);
+}
+
+button {
+  font-family: var(--font-mono);
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+input, textarea, select {
+  font-family: var(--font-mono);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  outline: none;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--color-fg);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-secondary); }

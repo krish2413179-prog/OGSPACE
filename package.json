@@ -1,0 +1,31 @@
+{
+  "name": "mirrormind",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "api",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=api",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:ml": "cd ml && python main.py",
+    "dev:all": "concurrently \"npm run dev:api\" \"npm run dev:frontend\" \"npm run dev:ml\"",
+    "build:api": "npm install && npm run build --workspace=api",
+    "start:api": "npm run start --workspace=api",
+    "build:ml": "pip install -r ml/requirements.txt",
+    "start:ml": "python ml/main.py",
+    "test:api": "npm run test --workspace=api",
+    "test:frontend": "npm run test --workspace=frontend"
+  },
+  "overrides": {
+    "@tanstack/react-query": "5.100.9"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
