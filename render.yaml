@@ -13,7 +13,7 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          type: redis
+          type: keyvalue
           name: mirrormind-redis
           property: connectionString
       - key: NODE_VERSION
@@ -48,13 +48,14 @@ services:
       - key: OG_COMPUTE_URL
         sync: false
 
+  # Redis (Key-Value)
+  - type: keyvalue
+    name: mirrormind-redis
+    plan: starter
+    ipAllowList: [] # Only allow internal connections
+
 databases:
   - name: mirrormind-db
     plan: starter
     databaseName: mirrormind
     user: mirrormind
-
-redis:
-  - name: mirrormind-redis
-    plan: starter
-    ipAllowList: [] # Only allow internal connections
