@@ -48,84 +48,87 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     }
 
     // Verify the signature
-    let verifyResult: Awaited<ReturnType<SiweMessage["verify"]>>;
     try {
-      verifyResult = await siweMessage.verify({ signature });
-    } catch {
+      const verifyResult = await siweMessage.verify({ signature });
+      if (!verifyResult.success) {
+        return reply.status(401).send({
+          error: "Unauthorized",
+          message: "SIWE signature verification failed.",
+        });
+      }
+    } catch (err) {
+      app.log.error({ err }, "SIWE signature verification crashed");
       return reply.status(401).send({
         error: "Unauthorized",
-        message: "Invalid SIWE signature.",
+        message: "Invalid SIWE signature or message.",
       });
     }
 
-    if (!verifyResult.success) {
-      return reply.status(401).send({
-        error: "Unauthorized",
-        message: "SIWE signature verification failed.",
+    try {
+      const { nonce, address: walletAddress } = siweMessage;
+
+      // Check nonce exists in Redis (one-time use)
+      const nonceKey = `siwe:nonce:${nonce}`;
+      const nonceExists = await redis.get(nonceKey);
+      if (!nonceExists) {
+        return reply.status(401).send({
+          error: "Unauthorized",
+          message: "Nonce is invalid or has already been used.",
+        });
+      }
+
+      // Delete nonce immediately
+      await redis.del(nonceKey);
+
+      // Upsert user record
+      const [user] = await db
+        .insert(users)
+        .values({
+          walletAddress: walletAddress.toLowerCase(),
+          ensName: null,
+          lastSeen: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: users.walletAddress,
+          set: { lastSeen: new Date() },
+        })
+        .returning();
+
+      if (!user) {
+        throw new Error("Failed to create or retrieve user record");
+      }
+
+      // Sign JWT
+      const payload: JwtPayload = {
+        walletAddress: user.walletAddress,
+        userId: user.id,
+      };
+      const token = app.jwt.sign(payload);
+
+      // Enqueue indexing job
+      const isFirstAuth = !user.createdAt || (Date.now() - user.createdAt.getTime()) < 5000;
+      if (isFirstAuth) {
+        import("../workers/indexWorker.js").then(({ indexingQueue }) => {
+          indexingQueue.add(
+            "index:full",
+            { type: "index:full", userId: user.id, walletAddress: user.walletAddress, chainId: 16602 },
+            { jobId: `full:${user.id}:initial` }
+          ).catch(() => {});
+        }).catch(() => {});
+      }
+
+      return reply.status(200).send({
+        token,
+        walletAddress: user.walletAddress,
+        userId: user.id,
       });
-    }
-
-    const { nonce, address: walletAddress } = siweMessage;
-
-    // Check nonce exists in Redis (one-time use)
-    const nonceKey = `siwe:nonce:${nonce}`;
-    const nonceExists = await redis.get(nonceKey);
-    if (!nonceExists) {
-      return reply.status(401).send({
-        error: "Unauthorized",
-        message: "Nonce is invalid or has already been used.",
-      });
-    }
-
-    // Delete nonce immediately (one-time use)
-    await redis.del(nonceKey);
-
-    // Upsert user record
-    const [user] = await db
-      .insert(users)
-      .values({
-        walletAddress: walletAddress.toLowerCase(),
-        ensName: null,
-        lastSeen: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: users.walletAddress,
-        set: { lastSeen: new Date() },
-      })
-      .returning();
-
-    if (!user) {
+    } catch (err) {
+      app.log.error({ err }, "SIWE verify route crashed during DB/Redis operations");
       return reply.status(500).send({
         error: "Internal Server Error",
-        message: "Failed to create or retrieve user record.",
+        message: err instanceof Error ? err.message : "An unexpected error occurred during verification.",
       });
     }
-
-    // Sign JWT
-    const payload: JwtPayload = {
-      walletAddress: user.walletAddress,
-      userId: user.id,
-    };
-    const token = app.jwt.sign(payload);
-
-    // Enqueue full historical indexing on first-time auth (Req 2.1)
-    const isFirstAuth = !user.createdAt || (Date.now() - user.createdAt.getTime()) < 5000;
-    if (isFirstAuth) {
-      // Dynamic import to avoid BullMQ queue blocking server startup
-      import("../workers/indexWorker.js").then(({ indexingQueue }) => {
-        indexingQueue.add(
-          "index:full",
-          { type: "index:full", userId: user.id, walletAddress: user.walletAddress, chainId: 16602 },
-          { jobId: `full:${user.id}:initial` }
-        ).catch(() => { /* non-fatal */ });
-      }).catch(() => { /* non-fatal */ });
-    }
-
-    return reply.status(200).send({
-      token,
-      walletAddress: user.walletAddress,
-      userId: user.id,
-    });
   });
 }
 
