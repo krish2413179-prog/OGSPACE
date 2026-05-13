@@ -176,7 +176,11 @@ export async function fullIndex(options: FullIndexOptions): Promise<{
 }> {
   const { userId, walletAddress, chainId, onProgress } = options;
   const currentBlock = await withRetry(() => ogClient.getBlockNumber());
-  const startBlock = process.env.INDEXER_START_BLOCK ? BigInt(process.env.INDEXER_START_BLOCK) : 0n;
+  // Default to the last 50,000 blocks to prevent stalling, unless INDEXER_START_BLOCK is set
+  const startBlock = process.env.INDEXER_START_BLOCK 
+    ? BigInt(process.env.INDEXER_START_BLOCK) 
+    : (currentBlock > 50000n ? currentBlock - 50000n : 0n);
+
   const hashes = await fetchWalletTransactionHashes(walletAddress, startBlock, currentBlock, onProgress);
 
   let newRecords = 0;
