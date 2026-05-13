@@ -16,8 +16,15 @@ import base64
 import logging
 import os
 import struct
+import sys
 import time
 import uuid
+
+# Ensure the project root is in sys.path so 'ml' is importable as a package
+# when this file is executed directly as a script (e.g., python ml/main.py)
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
