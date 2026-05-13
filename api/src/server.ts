@@ -65,20 +65,22 @@ export function buildApp() {
       const url = new URL(request.raw.url, "http://localhost");
       const token = url.searchParams.get("token");
       if (token) {
-        (request as any).wsToken = token;
-        app.log.info({ url: request.raw.url }, "Token captured in onRequest");
+        // Store on the raw Node.js request object which is shared across all wrappers
+        (request.raw as any).wsToken = token;
+        app.log.info({ url: request.raw.url }, "Token captured in onRequest (raw)");
       }
     }
   });
 
-  // WebSocket (MirrorMind API v1.0.6 - Global Hook Fix)
+  // WebSocket (MirrorMind API v1.0.7 - Raw Storage Fix)
   app.register(websocket);
   app.get("/ws", { websocket: true }, (connection, request) => {
-    const token = (request as any).wsToken || new URL(request.url || "", "http://localhost").searchParams.get("token");
+    // Try both raw storage and the current request
+    const token = (request.raw as any).wsToken || (request as any).wsToken || new URL(request.url || "", "http://localhost").searchParams.get("token");
 
     app.log.info({ 
       hasToken: !!token,
-      version: "1.0.6"
+      version: "1.0.7"
     }, "Incoming WebSocket connection");
 
     const closeConnection = () => {
@@ -96,7 +98,7 @@ export function buildApp() {
     };
 
     if (!token) {
-      app.log.warn("WebSocket connection rejected: No token found (v1.0.6)");
+      app.log.warn("WebSocket connection rejected: No token found (v1.0.7)");
       closeConnection();
       return;
     }
@@ -104,7 +106,7 @@ export function buildApp() {
     // Use a self-executing async function for the verification logic
     (async () => {
       try {
-        app.log.info({ userId: "pending", v: "1.0.6" }, "Verifying WebSocket token...");
+        app.log.info({ userId: "pending", v: "1.0.7" }, "Verifying WebSocket token...");
         const payload = await app.jwt.verify<JwtPayload>(token);
         const { userId } = payload;
 
