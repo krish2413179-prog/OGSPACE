@@ -105,24 +105,22 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       };
       const token = app.jwt.sign(payload);
 
-      // Enqueue indexing job
-      const isFirstAuth = !user.createdAt || (Date.now() - user.createdAt.getTime()) < 5000;
-      if (isFirstAuth) {
-        app.log.info({ userId: user.id, walletAddress: user.walletAddress }, "Enqueuing first-time indexing job");
-        import("../workers/indexWorker.js").then(({ indexingQueue }) => {
-          indexingQueue.add(
-            "index:full",
-            { type: "index:full", userId: user.id, walletAddress: user.walletAddress, chainId: 16602 },
-            { jobId: `full:${user.id}:initial` }
-          ).then(() => {
-            app.log.info({ userId: user.id }, "Indexing job enqueued successfully");
-          }).catch((err) => {
-            app.log.error({ err, userId: user.id }, "Failed to enqueue indexing job");
-          });
+      // Always enqueue/refresh indexing job on login
+      app.log.info({ userId: user.id, walletAddress: user.walletAddress }, "Enqueuing/Refreshing indexing job");
+      import("../workers/indexWorker.js").then(({ indexingQueue }) => {
+        // Use a consistent jobId to prevent multiple simultaneous full scans for the same user
+        indexingQueue.add(
+          "index:full",
+          { type: "index:full", userId: user.id, walletAddress: user.walletAddress, chainId: 16602 },
+          { jobId: `full:${user.id}:refresh` }
+        ).then(() => {
+          app.log.info({ userId: user.id }, "Indexing job enqueued successfully");
         }).catch((err) => {
-          app.log.error({ err }, "Failed to import indexingQueue");
+          app.log.error({ err, userId: user.id }, "Failed to enqueue indexing job");
         });
-      }
+      }).catch((err) => {
+        app.log.error({ err }, "Failed to import indexingQueue");
+      });
 
       return reply.status(200).send({
         token,
