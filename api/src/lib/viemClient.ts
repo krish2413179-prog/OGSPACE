@@ -22,4 +22,14 @@ const ogChain = defineChain({
 export const ogClient = createPublicClient({
   chain: ogChain,
   transport: http(process.env.OG_RPC_URL ?? "https://evmrpc-testnet.0g.ai"),
+  batch: {
+    multicall: true,
+  },
+});
+
+// Verify connection and log chain ID on startup
+ogClient.getChainId().then((id) => {
+  console.log(`Indexer connected to Chain ID: ${id} (Target: 16602)`);
+}).catch((err) => {
+  console.error("Indexer failed to connect to 0G Chain:", err);
 });
