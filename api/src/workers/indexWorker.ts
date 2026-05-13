@@ -61,6 +61,8 @@ export function createIndexingProcessor(broadcast: BroadcastFn) {
     const { userId, walletAddress, chainId } = job.data;
     const statusKey = INDEXING_STATUS_KEY(userId);
 
+    logger.info({ userId, walletAddress, jobId: job.id }, "Indexing worker: starting job processing");
+
     await redis.set(
       statusKey,
       JSON.stringify({ status: "IN_PROGRESS", progress: 0, totalActions: 0, lastIndexedAt: null })
@@ -68,6 +70,7 @@ export function createIndexingProcessor(broadcast: BroadcastFn) {
     broadcast(userId, "indexing:status", { userId, status: "IN_PROGRESS", progress: 0 });
 
     try {
+      logger.info({ userId }, "Indexing worker: connecting to 0G Chain...");
       if (job.data.type === "index:full") {
         const result = await fullIndex({
           userId,
