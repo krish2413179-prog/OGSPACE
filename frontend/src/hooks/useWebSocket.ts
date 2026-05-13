@@ -9,7 +9,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/appStore";
 
-const WS_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001")
+const WS_URL = (process.env.NEXT_PUBLIC_API_URL ?? "https://ogspace-1.onrender.com")
   .replace(/^http/, "ws");
 
 export function useWebSocket() {

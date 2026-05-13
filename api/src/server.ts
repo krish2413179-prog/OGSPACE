@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
+import websocket from "@fastify/websocket";
 import fp from "fastify-plugin";
 import { authRoutes, userRoutes } from "./routes/auth.js";
 import { indexingRoutes } from "./routes/indexing.js";
@@ -57,6 +58,36 @@ export function buildApp() {
   });
 
   app.get("/health", async () => ({ status: "ok", timestamp: new Date().toISOString() }));
+
+  // WebSocket
+  app.register(websocket);
+  app.get("/ws", { websocket: true }, async (connection, request) => {
+    const { token } = request.query as { token?: string };
+    if (!token) {
+      connection.socket.close(1008, "Token required");
+      return;
+    }
+
+    try {
+      const payload = await app.jwt.verify<JwtPayload>(token);
+      const { userId } = payload;
+
+      if (!wsClients.has(userId)) {
+        wsClients.set(userId, new Set());
+      }
+      const userClients = wsClients.get(userId)!;
+      userClients.add(connection.socket as any);
+
+      connection.socket.on("close", () => {
+        userClients.delete(connection.socket as any);
+        if (userClients.size === 0) {
+          wsClients.delete(userId);
+        }
+      });
+    } catch (err) {
+      connection.socket.close(1008, "Invalid token");
+    }
+  });
 
   // Routes
   app.register(authRoutes, { prefix: "/auth" });
