@@ -58,63 +58,40 @@ export async function fetchWalletTransactionHashes(
   toBlock: bigint,
   onProgress?: (progress: IndexingProgress) => void
 ): Promise<Hash[]> {
-  const hashes: Hash[] = [];
-  const totalBlocks = toBlock - fromBlock + 1n;
-  let scanned = 0n;
+  try {
+    const url = `https://chainscan-galileo.0g.ai/open/api?module=account&action=txlist&address=${walletAddress}&startblock=${fromBlock}&endblock=${toBlock}&sort=asc`;
+    
+    // Log intent
+    console.log(`Indexer: Fetching via 0G API...`);
 
-  for (let start = fromBlock; start <= toBlock; start += BLOCK_PAGE_SIZE) {
-    const end =
-      start + BLOCK_PAGE_SIZE - 1n < toBlock
-        ? start + BLOCK_PAGE_SIZE - 1n
-        : toBlock;
-
-    const blockNumbers: bigint[] = [];
-    for (let b = start; b <= end; b++) blockNumbers.push(b);
-
-    const BATCH = 25; // Increased batch size for faster scanning
-    for (let i = 0; i < blockNumbers.length; i += BATCH) {
-      const batch = blockNumbers.slice(i, i + BATCH);
-      
-      try {
-        const blocks = await withRetry(() =>
-          Promise.all(
-            batch.map((blockNumber) =>
-              ogClient.getBlock({ blockNumber, includeTransactions: true })
-            )
-          ),
-          2, // Max retries
-          500 // Base delay
-        );
-
-        for (const block of blocks) {
-          if (!block || !block.transactions) continue;
-          for (const txOrHash of block.transactions) {
-            if (typeof txOrHash === "object" && txOrHash !== null) {
-              const fullTx = txOrHash as { from?: string; to?: string | null; hash: Hash };
-              const fromMatch = fullTx.from?.toLowerCase() === walletAddress.toLowerCase();
-              const toMatch = fullTx.to?.toLowerCase() === walletAddress.toLowerCase();
-              if (fromMatch || toMatch) hashes.push(fullTx.hash);
-            }
-          }
-        }
-      } catch (err) {
-        // If a batch fails even after retries, log and continue to next batch
-        // rather than killing the whole indexing process
-        console.warn(`Indexer: Failed to fetch batch starting at ${batch[0]}, skipping...`);
-      }
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`0G API responded with status: ${response.status}`);
     }
 
-    scanned += end - start + 1n;
+    const data = await response.json() as any;
+    
+    // Etherscan-compatible APIs return status "1" for OK and "0" for No transactions found
+    if (data.status !== "1" && data.message !== "No transactions found") {
+      console.warn(`0G API returned non-success status: ${data.status} - ${data.message}`);
+    }
+
+    const txs = Array.isArray(data.result) ? data.result : [];
+    const hashes = txs.map((tx: any) => tx.hash as Hash);
+
     if (onProgress) {
-      const percent = Number((scanned * 100n) / totalBlocks);
-      onProgress({ indexed: hashes.length, total: -1, percent });
+      // 100% complete instantly!
+      onProgress({ indexed: hashes.length, total: hashes.length, percent: 100 });
     }
     
-    // Explicitly update progress every page to prevent stalls
-    console.log(`Indexer: Scanned ${scanned}/${totalBlocks} blocks... found ${hashes.length} txs`);
+    console.log(`Indexer: API fetch complete... found ${hashes.length} txs instantly`);
+    
+    return hashes;
+  } catch (error) {
+    console.error("Indexer: Failed to fetch from 0G API", error);
+    // Fallback to empty array to prevent complete crash
+    return [];
   }
-
-  return hashes;
 }
 
 export async function indexTransaction(
