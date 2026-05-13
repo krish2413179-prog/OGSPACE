@@ -12,6 +12,7 @@
  */
 
 import { logger } from "../../lib/logger.js";
+import { randomUUID } from "crypto";
 
 // ── Types matching the ML service proto / HTTP contract ───────────────────────
 
@@ -219,8 +220,7 @@ ${actionSummary}`;
       asset_behavior: asset,
       decision_context: decision,
       total: compositeScore,
-    },
-    model_id: require("crypto").randomUUID(),
+    model_id: randomUUID(),
   };
 }
 
