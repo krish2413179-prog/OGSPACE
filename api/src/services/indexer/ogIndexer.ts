@@ -56,7 +56,7 @@ export async function fetchWalletTransactionHashes(
   walletAddress: Address,
   fromBlock: bigint,
   toBlock: bigint,
-  onProgress?: (progress: IndexingProgress) => void
+  onProgress?: (progress: IndexingProgress) => Promise<void> | void
 ): Promise<Hash[]> {
   try {
     const url = `https://chainscan-galileo.0g.ai/open/api?module=account&action=txlist&address=${walletAddress}&startblock=${fromBlock}&endblock=${toBlock}&sort=asc`;
@@ -81,7 +81,7 @@ export async function fetchWalletTransactionHashes(
 
     if (onProgress) {
       // 100% complete instantly!
-      onProgress({ indexed: hashes.length, total: hashes.length, percent: 100 });
+      await onProgress({ indexed: hashes.length, total: hashes.length, percent: 100 });
     }
     
     console.log(`Indexer: API fetch complete... found ${hashes.length} txs instantly`);
@@ -156,7 +156,7 @@ export interface FullIndexOptions {
   userId: string;
   walletAddress: Address;
   chainId: number;
-  onProgress?: (progress: IndexingProgress) => void;
+  onProgress?: (progress: IndexingProgress) => Promise<void> | void;
 }
 
 export async function fullIndex(options: FullIndexOptions): Promise<{
@@ -178,7 +178,7 @@ export async function fullIndex(options: FullIndexOptions): Promise<{
     if (result.isNew) newRecords++;
     if (onProgress) {
       const percent = Math.round(((i + 1) / hashes.length) * 100);
-      onProgress({ indexed: i + 1, total: hashes.length, percent });
+      await onProgress({ indexed: i + 1, total: hashes.length, percent });
     }
   }
 
@@ -190,7 +190,7 @@ export interface IncrementalIndexOptions {
   walletAddress: Address;
   chainId: number;
   fromBlock: bigint;
-  onProgress?: (progress: IndexingProgress) => void;
+  onProgress?: (progress: IndexingProgress) => Promise<void> | void;
 }
 
 export async function incrementalIndex(options: IncrementalIndexOptions): Promise<{
