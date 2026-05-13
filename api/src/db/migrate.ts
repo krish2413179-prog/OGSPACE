@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 const { Pool } = pg;
 
-async function runMigration() {
+export async function runMigration() {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL environment variable is required");
   }
@@ -30,10 +30,13 @@ async function runMigration() {
     console.log("Migrations completed successfully");
   } catch (err) {
     console.error("Migrations failed:", err);
-    process.exit(1);
+    throw err; // Let the caller handle it or crash the server
   } finally {
     await pool.end();
   }
 }
 
-runMigration();
+// Only run automatically if executed directly via node
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  runMigration().catch(() => process.exit(1));
+}

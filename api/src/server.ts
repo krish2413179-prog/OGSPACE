@@ -110,6 +110,10 @@ export async function start() {
   const app = buildApp();
 
   try {
+    // Run migrations before starting the server
+    const { runMigration } = await import("./db/migrate.js");
+    await runMigration();
+
     const port = parseInt(process.env.PORT ?? "3001", 10);
     const host = process.env.HOST ?? "0.0.0.0";
     await app.listen({ port, host });
