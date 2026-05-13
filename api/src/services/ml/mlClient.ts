@@ -126,21 +126,25 @@ export async function trainModel(
     `- Action: ${a.action_type}, Protocol: ${a.protocol || 'None'}, Asset: ${a.asset_in || a.asset_out || 'None'}, Amount USD: $${a.amount_usd.toFixed(2)}`
   ).join("\n");
 
-  const prompt = `You are an expert blockchain behavioral analyst.
-Analyze the following wallet transactions and score the wallet's behavior from 0 to 100 on these 5 dimensions:
-1. risk_profile (0 = highly conservative, 100 = massive degen/high risk)
-2. timing_patterns (0 = sporadic/random, 100 = highly systematic/bot-like)
-3. protocol_preferences (0 = vanilla transfers, 100 = complex DeFi/smart contracts)
-4. asset_behavior (0 = holds stables/native, 100 = rapidly trades shitcoins/high-volatility)
-5. decision_context (0 = irrational/random, 100 = highly calculated/profitable)
+  const prompt = `You are an expert blockchain behavioral analyst profiling a wallet for an AI autonomous agent.
+Even if the wallet only contains simple testnet transactions (like standard ZEROG transfers), you must extrapolate their behavior creatively. For example, rapid testnet interactions indicate a developer testing systematic bots (high timing_patterns). Using testnets indicates tech-savvy behavior (mid-level protocol_preferences).
+
+Score the wallet's behavior from 0 to 100 on these 5 dimensions:
+1. risk_profile (0 = highly conservative, 100 = massive degen/high risk. Baseline testnet user = 30-50)
+2. timing_patterns (0 = sporadic/random, 100 = highly systematic/bot-like. Rapid successive txs = 70-90)
+3. protocol_preferences (0 = vanilla transfers, 100 = complex DeFi. Exploring testnets = 40-60)
+4. asset_behavior (0 = holds stables, 100 = rapidly trades shitcoins. Native gas token usage = 40-60)
+5. decision_context (0 = irrational, 100 = highly calculated. Airdrop farming/faucet testing = 60-80)
+
+CRITICAL: Do NOT output all zeros or all fifties. Provide a realistic, varied, and interesting behavioral profile based on the guidelines above.
 
 Respond ONLY with a valid JSON object matching this exact structure:
 {
   "risk_profile": 45,
-  "timing_patterns": 60,
-  "protocol_preferences": 20,
-  "asset_behavior": 50,
-  "decision_context": 70
+  "timing_patterns": 82,
+  "protocol_preferences": 41,
+  "asset_behavior": 55,
+  "decision_context": 73
 }
 
 Wallet Transactions:
