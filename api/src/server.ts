@@ -71,16 +71,28 @@ export function buildApp() {
       hasToken: !!token,
     }, "Incoming WebSocket connection");
 
+    const closeConnection = () => {
+      try {
+        if (connection.socket && typeof connection.socket.close === "function") {
+          connection.socket.close();
+        } else {
+          connection.destroy();
+        }
+      } catch (e) {
+        connection.destroy();
+      }
+    };
+
     if (!token) {
       app.log.warn("WebSocket connection rejected: No token found in URL");
-      if (connection.socket) connection.socket.terminate();
-      else connection.destroy();
+      closeConnection();
       return;
     }
 
     // Use a self-executing async function for the verification logic
     (async () => {
       try {
+        app.log.info("Verifying WebSocket token...");
         const payload = await app.jwt.verify<JwtPayload>(token);
         const { userId } = payload;
 
@@ -101,8 +113,7 @@ export function buildApp() {
         });
       } catch (err) {
         app.log.error({ err, token: token.slice(0, 10) + "..." }, "WebSocket JWT verification failed");
-        if (connection.socket) connection.socket.terminate();
-        else connection.destroy();
+        closeConnection();
       }
     })();
   });
