@@ -191,7 +191,7 @@ export async function fullIndex(options: FullIndexOptions): Promise<{
   // Default to the last 50,000 blocks to prevent stalling, unless INDEXER_START_BLOCK is set
   const startBlock = process.env.INDEXER_START_BLOCK 
     ? BigInt(process.env.INDEXER_START_BLOCK) 
-    : (currentBlock > 10000n ? currentBlock - 10000n : 0n);
+    : (currentBlock > 1000n ? currentBlock - 1000n : 0n);
 
   const hashes = await fetchWalletTransactionHashes(walletAddress, startBlock, currentBlock, onProgress);
 

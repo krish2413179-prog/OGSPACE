@@ -38,7 +38,8 @@ export interface TrainModelJobResult {
 
 // ── Minimum actions threshold ─────────────────────────────────────────────────
 
-export const MIN_ACTIONS_REQUIRED = 10;
+// Allow 0 for demo purposes so new users can still interact with the AI
+export const MIN_ACTIONS_REQUIRED = 0;
 
 // ── Queue ─────────────────────────────────────────────────────────────────────
 
