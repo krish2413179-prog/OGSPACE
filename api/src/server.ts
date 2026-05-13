@@ -59,18 +59,23 @@ export function buildApp() {
 
   app.get("/health", async () => ({ status: "ok", timestamp: new Date().toISOString() }));
 
-  // WebSocket
+  // WebSocket (MirrorMind API v1.0.5 - WS URL Capture Fix)
   app.register(websocket);
-  app.get("/ws", { websocket: true }, (connection, request) => {
-    // MirrorMind API v1.0.4 - WS Fix
-    const rawUrl = request.raw.url || request.url || "";
-    const url = new URL(rawUrl, "http://localhost");
+  app.get("/ws", { 
+    websocket: true,
+    preValidation: async (request) => {
+      // Save the URL before the websocket plugin potentially clears it
+      (request as any).capturedUrl = request.url || request.raw.url;
+    }
+  }, (connection, request) => {
+    const capturedUrl = (request as any).capturedUrl || request.url || "";
+    const url = new URL(capturedUrl, "http://localhost");
     const token = url.searchParams.get("token") || (request.query as any)?.token;
 
     app.log.info({ 
-      rawUrl,
+      capturedUrl,
       hasToken: !!token,
-      version: "1.0.4"
+      version: "1.0.5"
     }, "Incoming WebSocket connection");
 
     const closeConnection = () => {
@@ -88,7 +93,7 @@ export function buildApp() {
     };
 
     if (!token) {
-      app.log.warn("WebSocket connection rejected: No token found in URL (v1.0.4)");
+      app.log.warn("WebSocket connection rejected: No token found (v1.0.5)");
       closeConnection();
       return;
     }
@@ -96,7 +101,7 @@ export function buildApp() {
     // Use a self-executing async function for the verification logic
     (async () => {
       try {
-        app.log.info("Verifying WebSocket token (v1.0.4)...");
+        app.log.info({ userId: "pending", v: "1.0.5" }, "Verifying WebSocket token...");
         const payload = await app.jwt.verify<JwtPayload>(token);
         const { userId } = payload;
 
