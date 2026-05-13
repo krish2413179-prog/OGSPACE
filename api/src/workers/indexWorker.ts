@@ -124,6 +124,8 @@ export function createIndexingWorker(broadcast: BroadcastFn): Worker<IndexingJob
   const worker = new Worker<IndexingJobData>("indexing", processor, {
     connection: bullmqConnection,
     concurrency: 5,
+    lockDuration: 60000, // Increase lock duration to 60s
+    stalledInterval: 30000, // Check for stalls every 30s
   });
 
   worker.on("completed", (job) => logger.info({ jobId: job.id }, "Indexing job completed"));

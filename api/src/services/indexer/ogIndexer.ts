@@ -110,7 +110,7 @@ export async function fetchWalletTransactionHashes(
       onProgress({ indexed: hashes.length, total: -1, percent });
     }
     
-    // Log progress for developer/user visibility
+    // Explicitly update progress every page to prevent stalls
     console.log(`Indexer: Scanned ${scanned}/${totalBlocks} blocks... found ${hashes.length} txs`);
   }
 
