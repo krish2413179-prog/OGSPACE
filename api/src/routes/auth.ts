@@ -108,11 +108,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       // Always enqueue/refresh indexing job on login
       app.log.info({ userId: user.id, walletAddress: user.walletAddress }, "Enqueuing/Refreshing indexing job");
       import("../workers/indexWorker.js").then(({ indexingQueue }) => {
-        // Use a consistent jobId to prevent multiple simultaneous full scans for the same user
         indexingQueue.add(
           "index:full",
-          { type: "index:full", userId: user.id, walletAddress: user.walletAddress, chainId: 16602 },
-          { jobId: `full:${user.id}:refresh` }
+          { type: "index:full", userId: user.id, walletAddress: user.walletAddress, chainId: 16602 }
         ).then(() => {
           app.log.info({ userId: user.id }, "Indexing job enqueued successfully");
         }).catch((err) => {
