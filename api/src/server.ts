@@ -65,22 +65,26 @@ export function buildApp() {
       const url = new URL(request.raw.url, "http://localhost");
       const token = url.searchParams.get("token");
       if (token) {
-        // Store on the raw Node.js request object which is shared across all wrappers
-        (request.raw as any).wsToken = token;
-        app.log.info({ url: request.raw.url }, "Token captured in onRequest (raw)");
+        // Store on the physical TCP socket - the ultimate source of truth
+        (request.raw.socket as any).wsToken = token;
+        app.log.info({ 
+          url: request.raw.url,
+          socketId: (request.raw.socket as any).remotePort 
+        }, "Token captured on physical socket");
       }
     }
   });
 
-  // WebSocket (MirrorMind API v1.0.7 - Raw Storage Fix)
+  // WebSocket (MirrorMind API v1.0.8 - Socket Storage Fix)
   app.register(websocket);
   app.get("/ws", { websocket: true }, (connection, request) => {
-    // Try both raw storage and the current request
-    const token = (request.raw as any).wsToken || (request as any).wsToken || new URL(request.url || "", "http://localhost").searchParams.get("token");
+    // Try socket storage, raw request, and current request
+    const token = (request.raw.socket as any).wsToken || (request.raw as any).wsToken || (request as any).wsToken;
 
     app.log.info({ 
       hasToken: !!token,
-      version: "1.0.7"
+      version: "1.0.8",
+      socketId: (request.raw.socket as any).remotePort
     }, "Incoming WebSocket connection");
 
     const closeConnection = () => {
@@ -98,7 +102,7 @@ export function buildApp() {
     };
 
     if (!token) {
-      app.log.warn("WebSocket connection rejected: No token found (v1.0.7)");
+      app.log.warn("WebSocket connection rejected: No token found (v1.0.8)");
       closeConnection();
       return;
     }
@@ -106,7 +110,7 @@ export function buildApp() {
     // Use a self-executing async function for the verification logic
     (async () => {
       try {
-        app.log.info({ userId: "pending", v: "1.0.7" }, "Verifying WebSocket token...");
+        app.log.info({ userId: "pending", v: "1.0.8" }, "Verifying WebSocket token...");
         const payload = await app.jwt.verify<JwtPayload>(token);
         const { userId } = payload;
 
