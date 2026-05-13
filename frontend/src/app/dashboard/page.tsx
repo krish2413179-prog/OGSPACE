@@ -133,10 +133,28 @@ export default function DashboardPage() {
               {walletAddress ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : "—"}
             </p>
           </div>
-          <nav style={{ display: "flex", gap: "24px", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          <nav style={{ display: "flex", gap: "24px", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.08em", alignItems: "center" }}>
             <Link href="/dashboard/agent">Agent</Link>
             <Link href="/dashboard/mint">Mint</Link>
             <Link href="/marketplace">Market</Link>
+            <button
+              onClick={() => {
+                useAppStore.getState().clearAuth();
+                router.push("/");
+              }}
+              style={{
+                background: "none",
+                border: "1px solid var(--color-border-dim)",
+                color: "var(--color-secondary)",
+                padding: "4px 8px",
+                cursor: "pointer",
+                fontSize: "10px",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em"
+              }}
+            >
+              Logout
+            </button>
           </nav>
         </div>
       </FadeIn>
