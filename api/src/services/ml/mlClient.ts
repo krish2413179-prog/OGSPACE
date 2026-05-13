@@ -178,12 +178,17 @@ ${actionSummary}`;
     scores = { risk_profile: 50, timing_patterns: 50, protocol_preferences: 50, asset_behavior: 50, decision_context: 50 };
   }
 
-  // Ensure default structure
-  const risk = Number(scores.risk_profile) || 50;
-  const timing = Number(scores.timing_patterns) || 50;
-  const protocol = Number(scores.protocol_preferences) || 50;
-  const asset = Number(scores.asset_behavior) || 50;
-  const decision = Number(scores.decision_context) || 50;
+  // Ensure default structure, safely handling 0 values (since 0 || 50 === 50 in JS)
+  const getScore = (val: any) => {
+    const num = Number(val);
+    return isNaN(num) ? 50 : num;
+  };
+
+  const risk = getScore(scores.risk_profile);
+  const timing = getScore(scores.timing_patterns);
+  const protocol = getScore(scores.protocol_preferences);
+  const asset = getScore(scores.asset_behavior);
+  const decision = getScore(scores.decision_context);
 
   // Construct a 512-dim float32 vector (2048 bytes) that perfectly reverse-engineers the Node scoring math!
   // Node scoring math: score = (mean + 1) * 50 => mean = (score / 50) - 1
