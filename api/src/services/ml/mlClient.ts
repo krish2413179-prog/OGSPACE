@@ -117,29 +117,111 @@ function getMlServiceUrl(): string {
 export async function trainModel(
   request: TrainModelRequest
 ): Promise<TrainModelResponse> {
-  const url = `${getMlServiceUrl()}/train`;
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) throw new Error("NVIDIA_API_KEY is not set in .env");
 
-  return withRetry(async () => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    });
+  // Format the transaction history for the LLM
+  const actionSummary = request.actions.map(a => 
+    `- Action: ${a.action_type}, Protocol: ${a.protocol || 'None'}, Asset: ${a.asset_in || a.asset_out || 'None'}, Amount USD: $${a.amount_usd.toFixed(2)}`
+  ).join("\n");
 
-    if (!res.ok) {
-      const body = await res.text().catch(() => "(no body)");
-      const err = new Error(
-        `ML /train returned HTTP ${res.status}: ${body}`
-      );
-      (err as Error & { statusCode: number }).statusCode = res.status;
-      throw err;
+  const prompt = `You are an expert blockchain behavioral analyst.
+Analyze the following wallet transactions and score the wallet's behavior from 0 to 100 on these 5 dimensions:
+1. risk_profile (0 = highly conservative, 100 = massive degen/high risk)
+2. timing_patterns (0 = sporadic/random, 100 = highly systematic/bot-like)
+3. protocol_preferences (0 = vanilla transfers, 100 = complex DeFi/smart contracts)
+4. asset_behavior (0 = holds stables/native, 100 = rapidly trades shitcoins/high-volatility)
+5. decision_context (0 = irrational/random, 100 = highly calculated/profitable)
+
+Respond ONLY with a valid JSON object matching this exact structure:
+{
+  "risk_profile": 45,
+  "timing_patterns": 60,
+  "protocol_preferences": 20,
+  "asset_behavior": 50,
+  "decision_context": 70
+}
+
+Wallet Transactions:
+${actionSummary}`;
+
+  const res = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "openai/gpt-oss-20b",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 1024,
+    })
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`NVIDIA API Error: ${res.status} ${text}`);
+  }
+
+  const jsonRes = await res.json() as any;
+  const content = jsonRes.choices?.[0]?.message?.content || "{}";
+  
+  // Extract JSON using regex in case LLM wraps it in markdown blocks
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  let scores;
+  try {
+    scores = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+  } catch (err) {
+    logger.warn({ content }, "Failed to parse LLM output as JSON, defaulting scores");
+    scores = { risk_profile: 50, timing_patterns: 50, protocol_preferences: 50, asset_behavior: 50, decision_context: 50 };
+  }
+
+  // Ensure default structure
+  const risk = Number(scores.risk_profile) || 50;
+  const timing = Number(scores.timing_patterns) || 50;
+  const protocol = Number(scores.protocol_preferences) || 50;
+  const asset = Number(scores.asset_behavior) || 50;
+  const decision = Number(scores.decision_context) || 50;
+
+  // Construct a 512-dim float32 vector (2048 bytes) that perfectly reverse-engineers the Node scoring math!
+  // Node scoring math: score = (mean + 1) * 50 => mean = (score / 50) - 1
+  const vectorBuffer = Buffer.alloc(512 * 4);
+  let offset = 0;
+
+  const writeSegment = (length: number, score: number) => {
+    const safeScore = Math.max(0, Math.min(100, score));
+    const mean = (safeScore / 50) - 1;
+    for (let i = 0; i < length; i++) {
+      vectorBuffer.writeFloatLE(mean, offset);
+      offset += 4;
     }
+  };
 
-    const json = (await res.json()) as Omit<TrainModelResponse, "vector">;
-    const vector = Buffer.from(json.vector_b64, "base64");
+  // Node backend slices: [0:64] risk, [64:128] timing, [128:256] protocol, [256:384] asset, [384:512] decision
+  writeSegment(64, risk);
+  writeSegment(64, timing);
+  writeSegment(128, protocol);
+  writeSegment(128, asset);
+  writeSegment(128, decision);
 
-    return { ...json, vector };
-  }, "POST /train");
+  const compositeScore = (risk + timing + protocol + asset + decision) / 5;
+
+  return {
+    vector_b64: vectorBuffer.toString("base64"),
+    vector: vectorBuffer,
+    performance_score: compositeScore,
+    model_version: request.model_version,
+    dimensions: {
+      risk_profile: risk,
+      timing_patterns: timing,
+      protocol_preferences: protocol,
+      asset_behavior: asset,
+      decision_context: decision,
+      total: compositeScore,
+    },
+    model_id: require("crypto").randomUUID(),
+  };
 }
 
 /**

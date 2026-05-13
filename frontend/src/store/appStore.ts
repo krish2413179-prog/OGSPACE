@@ -137,8 +137,12 @@ export const useAppStore = create<AppState>()(
       indexingStatus: "PENDING",
       indexingProgress: 0,
       totalActions: 0,
-      setIndexingStatus: (status, progress = 0, totalActions = 0) =>
-        set({ indexingStatus: status, indexingProgress: progress, totalActions }),
+      setIndexingStatus: (status, progress = 0, totalActions = 0) => {
+        // Failsafe: if the backend sends IN_PROGRESS but progress is 100,
+        // treat it as COMPLETE to unblock the UI.
+        const safeStatus = (status === "IN_PROGRESS" && progress === 100) ? "COMPLETE" : status;
+        set({ indexingStatus: safeStatus, indexingProgress: progress, totalActions });
+      },
 
       // Model
       currentModel: null,

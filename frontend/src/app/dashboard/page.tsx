@@ -205,7 +205,50 @@ export default function DashboardPage() {
               <SharpCard>
                 <p style={{ fontSize: "12px", color: "var(--color-secondary)", marginBottom: "16px" }}>No model trained yet.</p>
                 <button
-                  onClick={async () => { if (jwt) await api.models.train(jwt); }}
+                  id="train-model-btn"
+                  onClick={async () => {
+                    if (!jwt) return;
+                    const btn = document.getElementById("train-model-btn");
+                    if (btn) btn.innerText = "TRAINING...";
+                    try {
+                      await api.models.train(jwt);
+                      
+                      // Poll for the completed model
+                      const interval = setInterval(async () => {
+                        try {
+                          const modelRes = await api.models.current(jwt);
+                          if (modelRes && modelRes.id) {
+                            clearInterval(interval);
+                            const m = modelRes;
+                            const meta = m.modelMetadata as Record<string, unknown> | null;
+                            const ds = meta?.dimensionScores as Record<string, number> | undefined;
+                            useAppStore.getState().setCurrentModel({
+                              id: m.id,
+                              version: m.version,
+                              ogStorageCid: m.ogStorageCid,
+                              performanceScore: m.performanceScore,
+                              totalActionsTrained: m.totalActionsTrained,
+                              vectorDimensions: m.vectorDimensions,
+                              dimensionScores: ds ? {
+                                riskProfile: ds.riskProfile ?? 0,
+                                timingPatterns: ds.timingPatterns ?? 0,
+                                protocolPreferences: ds.protocolPreferences ?? 0,
+                                assetBehavior: ds.assetBehavior ?? 0,
+                                decisionContext: ds.decisionContext ?? 0,
+                                compositeScore: ds.compositeScore ?? 0,
+                              } : undefined,
+                              modelMetadata: m.modelMetadata,
+                            });
+                          }
+                        } catch {
+                          // Ignore 404s while waiting
+                        }
+                      }, 3000);
+                    } catch (err) {
+                      if (btn) btn.innerText = "TRAINING FAILED";
+                      console.error("Training failed", err);
+                    }
+                  }}
                   style={{ padding: "10px 20px", background: "var(--color-fg)", color: "var(--color-bg)", border: "none", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer" }}
                 >
                   TRAIN MODEL
