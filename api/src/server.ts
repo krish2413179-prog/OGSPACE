@@ -62,18 +62,19 @@ export function buildApp() {
   // WebSocket
   app.register(websocket);
   app.get("/ws", { websocket: true }, (connection, request) => {
-    // Manually parse query from URL if request.query is empty/unpopulated
-    const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
-    const token = url.searchParams.get("token") || (request.query as any)?.token;
+    // Manually parse query from the raw URL to ensure we get the token
+    const rawUrl = request.raw.url || "";
+    const url = new URL(rawUrl, "http://localhost");
+    const token = url.searchParams.get("token");
 
     app.log.info({ 
-      url: request.url, 
+      rawUrl,
       hasToken: !!token,
     }, "Incoming WebSocket connection");
 
     if (!token) {
-      app.log.warn("WebSocket connection rejected: No token provided in query");
-      connection.destroy();
+      app.log.warn("WebSocket connection rejected: No token found in URL");
+      connection.socket.terminate();
       return;
     }
 
@@ -100,7 +101,7 @@ export function buildApp() {
         });
       } catch (err) {
         app.log.error({ err, token: token.slice(0, 10) + "..." }, "WebSocket JWT verification failed");
-        connection.destroy();
+        connection.socket.terminate();
       }
     })();
   });
