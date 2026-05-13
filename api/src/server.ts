@@ -59,6 +59,9 @@ export function buildApp() {
 
   app.get("/health", async () => ({ status: "ok", timestamp: new Date().toISOString() }));
 
+  // WebSocket
+  app.register(websocket);
+  app.get("/ws", { websocket: true }, (connection, request) => {
     // MirrorMind API v1.0.4 - WS Fix
     const rawUrl = request.raw.url || request.url || "";
     const url = new URL(rawUrl, "http://localhost");
@@ -72,8 +75,8 @@ export function buildApp() {
 
     const closeConnection = () => {
       try {
-        if (connection.socket && typeof connection.socket.close === "function") {
-          connection.socket.close();
+        if (connection.socket && typeof (connection.socket as any).close === "function") {
+          (connection.socket as any).close();
         } else if (typeof connection.destroy === "function") {
           connection.destroy();
         } else {
