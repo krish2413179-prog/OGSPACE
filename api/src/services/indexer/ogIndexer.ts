@@ -165,10 +165,10 @@ export async function fullIndex(options: FullIndexOptions): Promise<{
 }> {
   const { userId, walletAddress, chainId, onProgress } = options;
   const currentBlock = await withRetry(() => ogClient.getBlockNumber());
-  // Default to the last 50,000 blocks to prevent stalling, unless INDEXER_START_BLOCK is set
+  // With the instant API, we can safely fetch all historical transactions from block 0
   const startBlock = process.env.INDEXER_START_BLOCK 
     ? BigInt(process.env.INDEXER_START_BLOCK) 
-    : (currentBlock > 200000n ? currentBlock - 200000n : 0n);
+    : 0n;
 
   const hashes = await fetchWalletTransactionHashes(walletAddress, startBlock, currentBlock, onProgress);
 
