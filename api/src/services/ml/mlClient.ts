@@ -220,6 +220,7 @@ ${actionSummary}`;
       asset_behavior: asset,
       decision_context: decision,
       total: compositeScore,
+    },
     model_id: randomUUID(),
   };
 }
