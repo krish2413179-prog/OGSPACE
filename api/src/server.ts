@@ -62,6 +62,12 @@ export function buildApp() {
   // WebSocket
   app.register(websocket);
   app.get("/ws", { websocket: true }, (connection, request) => {
+    app.log.info({ 
+      url: request.url, 
+      query: request.query,
+      headers: request.headers 
+    }, "Incoming WebSocket connection");
+
     const query = (request.query as Record<string, any>) || {};
     const token = query.token;
 
@@ -146,6 +152,12 @@ declare module "fastify" {
   }
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+const isMain = process.argv[1] && (
+  process.argv[1].includes("server.js") || 
+  process.argv[1].includes("server.ts") ||
+  process.argv[1].endsWith("api") // For some runtime environments
+);
+
+if (isMain) {
   start();
 }

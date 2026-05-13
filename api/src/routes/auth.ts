@@ -108,13 +108,20 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       // Enqueue indexing job
       const isFirstAuth = !user.createdAt || (Date.now() - user.createdAt.getTime()) < 5000;
       if (isFirstAuth) {
+        app.log.info({ userId: user.id, walletAddress: user.walletAddress }, "Enqueuing first-time indexing job");
         import("../workers/indexWorker.js").then(({ indexingQueue }) => {
           indexingQueue.add(
             "index:full",
             { type: "index:full", userId: user.id, walletAddress: user.walletAddress, chainId: 16602 },
             { jobId: `full:${user.id}:initial` }
-          ).catch(() => {});
-        }).catch(() => {});
+          ).then(() => {
+            app.log.info({ userId: user.id }, "Indexing job enqueued successfully");
+          }).catch((err) => {
+            app.log.error({ err, userId: user.id }, "Failed to enqueue indexing job");
+          });
+        }).catch((err) => {
+          app.log.error({ err }, "Failed to import indexingQueue");
+        });
       }
 
       return reply.status(200).send({
