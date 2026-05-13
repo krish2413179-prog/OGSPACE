@@ -71,27 +71,36 @@ export async function fetchWalletTransactionHashes(
     const blockNumbers: bigint[] = [];
     for (let b = start; b <= end; b++) blockNumbers.push(b);
 
-    const BATCH = 10;
+    const BATCH = 25; // Increased batch size for faster scanning
     for (let i = 0; i < blockNumbers.length; i += BATCH) {
       const batch = blockNumbers.slice(i, i + BATCH);
-      const blocks = await withRetry(() =>
-        Promise.all(
-          batch.map((blockNumber) =>
-            ogClient.getBlock({ blockNumber, includeTransactions: true })
-          )
-        )
-      );
+      
+      try {
+        const blocks = await withRetry(() =>
+          Promise.all(
+            batch.map((blockNumber) =>
+              ogClient.getBlock({ blockNumber, includeTransactions: true })
+            )
+          ),
+          2, // Max retries
+          500 // Base delay
+        );
 
-      for (const block of blocks) {
-        if (!block.transactions) continue;
-        for (const txOrHash of block.transactions) {
-          if (typeof txOrHash === "object" && txOrHash !== null) {
-            const fullTx = txOrHash as { from?: string; to?: string | null; hash: Hash };
-            const fromMatch = fullTx.from?.toLowerCase() === walletAddress.toLowerCase();
-            const toMatch = fullTx.to?.toLowerCase() === walletAddress.toLowerCase();
-            if (fromMatch || toMatch) hashes.push(fullTx.hash);
+        for (const block of blocks) {
+          if (!block || !block.transactions) continue;
+          for (const txOrHash of block.transactions) {
+            if (typeof txOrHash === "object" && txOrHash !== null) {
+              const fullTx = txOrHash as { from?: string; to?: string | null; hash: Hash };
+              const fromMatch = fullTx.from?.toLowerCase() === walletAddress.toLowerCase();
+              const toMatch = fullTx.to?.toLowerCase() === walletAddress.toLowerCase();
+              if (fromMatch || toMatch) hashes.push(fullTx.hash);
+            }
           }
         }
+      } catch (err) {
+        // If a batch fails even after retries, log and continue to next batch
+        // rather than killing the whole indexing process
+        console.warn(`Indexer: Failed to fetch batch starting at ${batch[0]}, skipping...`);
       }
     }
 
@@ -100,6 +109,9 @@ export async function fetchWalletTransactionHashes(
       const percent = Number((scanned * 100n) / totalBlocks);
       onProgress({ indexed: hashes.length, total: -1, percent });
     }
+    
+    // Log progress for developer/user visibility
+    console.log(`Indexer: Scanned ${scanned}/${totalBlocks} blocks... found ${hashes.length} txs`);
   }
 
   return hashes;
@@ -179,7 +191,7 @@ export async function fullIndex(options: FullIndexOptions): Promise<{
   // Default to the last 50,000 blocks to prevent stalling, unless INDEXER_START_BLOCK is set
   const startBlock = process.env.INDEXER_START_BLOCK 
     ? BigInt(process.env.INDEXER_START_BLOCK) 
-    : (currentBlock > 50000n ? currentBlock - 50000n : 0n);
+    : (currentBlock > 10000n ? currentBlock - 10000n : 0n);
 
   const hashes = await fetchWalletTransactionHashes(walletAddress, startBlock, currentBlock, onProgress);
 
