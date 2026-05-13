@@ -105,7 +105,7 @@ async function withRetry<T>(
 // ── Client ────────────────────────────────────────────────────────────────────
 
 function getMlServiceUrl(): string {
-  return process.env.ML_SERVICE_URL ?? "http://localhost:8000";
+  return process.env.ML_SERVICE_URL ?? "https://ogspace.onrender.com";
 }
 
 /**
