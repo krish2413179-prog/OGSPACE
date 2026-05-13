@@ -66,6 +66,7 @@ export function buildApp() {
     const token = query.token;
 
     if (!token) {
+      app.log.warn("WebSocket connection rejected: No token provided in query");
       connection.socket.close(1008, "Token required");
       return;
     }
@@ -76,6 +77,8 @@ export function buildApp() {
         const payload = await app.jwt.verify<JwtPayload>(token);
         const { userId } = payload;
 
+        app.log.info({ userId }, "WebSocket authenticated successfully");
+
         if (!wsClients.has(userId)) {
           wsClients.set(userId, new Set());
         }
@@ -83,12 +86,14 @@ export function buildApp() {
         userClients.add(connection.socket as any);
 
         connection.socket.on("close", () => {
+          app.log.info({ userId }, "WebSocket connection closed");
           userClients.delete(connection.socket as any);
           if (userClients.size === 0) {
             wsClients.delete(userId);
           }
         });
       } catch (err) {
+        app.log.error({ err, token: token.slice(0, 10) + "..." }, "WebSocket JWT verification failed");
         connection.socket.close(1008, "Invalid token");
       }
     })();
