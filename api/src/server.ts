@@ -62,19 +62,19 @@ export function buildApp() {
   // WebSocket
   app.register(websocket);
   app.get("/ws", { websocket: true }, (connection, request) => {
-    // Manually parse query from the raw URL to ensure we get the token
-    const rawUrl = request.raw.url || "";
-    const url = new URL(rawUrl, "http://localhost");
-    const token = url.searchParams.get("token");
+    // Use Fastify's request.url which we know contains the query string from logs
+    const url = new URL(request.url, "http://localhost");
+    const token = url.searchParams.get("token") || (request.query as any)?.token;
 
     app.log.info({ 
-      rawUrl,
+      requestUrl: request.url,
       hasToken: !!token,
     }, "Incoming WebSocket connection");
 
     if (!token) {
       app.log.warn("WebSocket connection rejected: No token found in URL");
-      connection.socket.terminate();
+      if (connection.socket) connection.socket.terminate();
+      else connection.destroy();
       return;
     }
 
@@ -101,7 +101,8 @@ export function buildApp() {
         });
       } catch (err) {
         app.log.error({ err, token: token.slice(0, 10) + "..." }, "WebSocket JWT verification failed");
-        connection.socket.terminate();
+        if (connection.socket) connection.socket.terminate();
+        else connection.destroy();
       }
     })();
   });
