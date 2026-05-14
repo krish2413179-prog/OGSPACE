@@ -214,55 +214,56 @@ export default function DashboardPage() {
             <SlideUp delay={0.1}>
               <SharpCard>
                 <p style={{ fontSize: "12px", color: "var(--color-secondary)", marginBottom: "16px" }}>No model trained yet.</p>
-                <button
-                  id="train-model-btn"
-                  onClick={async () => {
-                    if (!jwt) return;
-                    const btn = document.getElementById("train-model-btn");
-                    if (btn) btn.innerText = "TRAINING...";
-                    try {
-                      await api.models.train(jwt);
-                      
-                      // Poll for the completed model
-                      const interval = setInterval(async () => {
-                        try {
-                          const modelRes = await api.models.current(jwt);
-                          if (modelRes && modelRes.id) {
-                            clearInterval(interval);
-                            const m = modelRes;
-                            const meta = m.modelMetadata as Record<string, unknown> | null;
-                            const ds = meta?.dimensionScores as Record<string, number> | undefined;
-                            useAppStore.getState().setCurrentModel({
-                              id: m.id,
-                              version: m.version,
-                              ogStorageCid: m.ogStorageCid,
-                              performanceScore: m.performanceScore,
-                              totalActionsTrained: m.totalActionsTrained,
-                              vectorDimensions: m.vectorDimensions,
-                              dimensionScores: ds ? {
-                                riskProfile: ds.riskProfile ?? 0,
-                                timingPatterns: ds.timingPatterns ?? 0,
-                                protocolPreferences: ds.protocolPreferences ?? 0,
-                                assetBehavior: ds.assetBehavior ?? 0,
-                                decisionContext: ds.decisionContext ?? 0,
-                                compositeScore: ds.compositeScore ?? 0,
-                              } : undefined,
-                              modelMetadata: m.modelMetadata,
-                            });
+                  <button
+                    id="train-model-btn"
+                    className="btn-primary"
+                    onClick={async () => {
+                      if (!jwt) return;
+                      const btn = document.getElementById("train-model-btn");
+                      if (btn) btn.innerText = "TRAINING...";
+                      try {
+                        await api.models.train(jwt);
+                        
+                        // Poll for the completed model
+                        const interval = setInterval(async () => {
+                          try {
+                            const modelRes = await api.models.current(jwt);
+                            if (modelRes && modelRes.id) {
+                              clearInterval(interval);
+                              const m = modelRes;
+                              const meta = m.modelMetadata as Record<string, unknown> | null;
+                              const ds = meta?.dimensionScores as Record<string, number> | undefined;
+                              useAppStore.getState().setCurrentModel({
+                                id: m.id,
+                                version: m.version,
+                                ogStorageCid: m.ogStorageCid,
+                                performanceScore: m.performanceScore,
+                                totalActionsTrained: m.totalActionsTrained,
+                                vectorDimensions: m.vectorDimensions,
+                                dimensionScores: ds ? {
+                                  riskProfile: ds.riskProfile ?? 0,
+                                  timingPatterns: ds.timingPatterns ?? 0,
+                                  protocolPreferences: ds.protocolPreferences ?? 0,
+                                  assetBehavior: ds.assetBehavior ?? 0,
+                                  decisionContext: ds.decisionContext ?? 0,
+                                  compositeScore: ds.compositeScore ?? 0,
+                                } : undefined,
+                                modelMetadata: m.modelMetadata,
+                              });
+                            }
+                          } catch {
+                            // Ignore 404s while waiting
                           }
-                        } catch {
-                          // Ignore 404s while waiting
-                        }
-                      }, 3000);
-                    } catch (err) {
-                      if (btn) btn.innerText = "TRAINING FAILED";
-                      console.error("Training failed", err);
-                    }
-                  }}
-                  style={{ padding: "10px 20px", background: "var(--color-fg)", color: "var(--color-bg)", border: "none", fontSize: "11px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer" }}
-                >
-                  TRAIN MODEL
-                </button>
+                        }, 3000);
+                      } catch (err) {
+                        if (btn) btn.innerText = "TRAINING FAILED";
+                        console.error("Training failed", err);
+                      }
+                    }}
+                    style={{ width: "100%" }}
+                  >
+                    TRAIN MODEL
+                  </button>
               </SharpCard>
             </SlideUp>
           )}
@@ -318,8 +319,8 @@ export default function DashboardPage() {
                   {pendingSuggestion.reasoning.slice(0, 120)}…
                 </p>
                 <div style={{ display: "flex", gap: "12px" }}>
-                  <button onClick={() => setPendingSuggestion(null)} style={{ padding: "8px 16px", background: "var(--color-fg)", color: "var(--color-bg)", border: "none", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}>APPROVE</button>
-                  <button onClick={() => setPendingSuggestion(null)} style={{ padding: "8px 16px", background: "transparent", color: "var(--color-fg)", border: "1px solid var(--color-border-dim)", fontSize: "11px", cursor: "pointer" }}>REJECT</button>
+                  <button className="btn-primary" onClick={() => setPendingSuggestion(null)} style={{ flex: 1, padding: "8px" }}>APPROVE</button>
+                  <button onClick={() => setPendingSuggestion(null)} style={{ flex: 1, padding: "8px", background: "rgba(255,255,255,0.05)", color: "var(--color-fg)", border: "1px solid var(--color-border-dim)", fontSize: "11px", fontWeight: 700, letterSpacing: "0.05em" }}>REJECT</button>
                 </div>
               </SharpCard>
             </SlideUp>
@@ -396,6 +397,7 @@ export default function DashboardPage() {
                 <p style={{ fontSize: "11px", color: "red", marginBottom: "12px" }}>{analyzeError}</p>
               )}
               <button
+                className="btn-primary"
                 onClick={async () => {
                   if (!jwt || !analyzeTarget) return;
                   setAnalyzing(true);
@@ -413,19 +415,7 @@ export default function DashboardPage() {
                   }
                 }}
                 disabled={analyzing || !analyzeTarget}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  background: "var(--color-fg)",
-                  color: "var(--color-bg)",
-                  border: "none",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  cursor: analyzing || !analyzeTarget ? "not-allowed" : "pointer",
-                  opacity: analyzing || !analyzeTarget ? 0.5 : 1,
-                }}
+                style={{ width: "100%", marginTop: "8px" }}
               >
                 {analyzing ? "ANALYZING..." : "ANALYZE WALLET"}
               </button>

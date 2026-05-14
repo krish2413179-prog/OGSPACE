@@ -1,10 +1,4 @@
-/* MirrorMind — Global Styles
- * Strict monochromatic palette: black / white / mid-grey
- * No color accents anywhere.
- * Requirements: 16.1, 16.2, 16.4
- */
-
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -13,54 +7,147 @@
 }
 
 :root {
-  --color-bg:        #000000;
-  --color-fg:        #ffffff;
-  --color-secondary: #888888;
-  --color-border:    #ffffff;
-  --color-border-dim:#333333;
-  --font-mono:       'Space Mono', 'Courier New', monospace;
-  --radius:          0px; /* sharp corners everywhere */
+  /* Vibrant Dark Mode Palette */
+  --color-bg: #03050c; /* Deep space black */
+  --color-bg-secondary: #0a0d1a;
+  --color-fg: #f8f9fc;
+  --color-secondary: #94a3b8;
+  
+  /* Neons / Accents */
+  --color-accent-primary: #3b82f6;   /* Electric Blue */
+  --color-accent-secondary: #8b5cf6; /* Vibrant Purple */
+  --color-accent-tertiary: #14b8a6;  /* Cyan */
+  --color-accent-glow: rgba(59, 130, 246, 0.5);
+
+  /* Glassmorphism Borders */
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-dim: rgba(255, 255, 255, 0.05);
+  --color-glass-bg: rgba(10, 13, 26, 0.6);
+  --color-glass-bg-hover: rgba(20, 25, 45, 0.7);
+
+  /* Typography */
+  --font-sans: 'Outfit', -apple-system, sans-serif;
+  --font-mono: 'Space Mono', 'Courier New', monospace;
+  
+  --radius: 16px;
+  --radius-sm: 8px;
 }
 
 html, body {
   background-color: var(--color-bg);
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%);
+  background-attachment: fixed;
   color: var(--color-fg);
-  font-family: var(--font-mono);
-  font-size: 14px;
+  font-family: var(--font-sans);
+  font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
 a {
-  color: var(--color-fg);
-  text-decoration: underline;
+  color: var(--color-accent-primary);
+  text-decoration: none;
+  transition: all 0.2s ease;
 }
 
 a:hover {
-  color: var(--color-secondary);
+  color: var(--color-accent-secondary);
+  text-shadow: 0 0 8px var(--color-accent-glow);
 }
 
 button {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   cursor: pointer;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 input, textarea, select {
   font-family: var(--font-mono);
-  background: var(--color-bg);
+  background: rgba(0, 0, 0, 0.3);
   color: var(--color-fg);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 input:focus, textarea:focus, select:focus {
-  border-color: var(--color-fg);
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--color-bg); }
-::-webkit-scrollbar-thumb { background: var(--color-secondary); }
+::-webkit-scrollbar-thumb { 
+  background: var(--color-border); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary);
+}
+
+/* Global Animations */
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Glass panel utility */
+.glass-panel {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary), var(--color-accent-tertiary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% auto;
+  animation: gradientShift 5s ease infinite;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-accent-primary), var(--color-accent-secondary));
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}

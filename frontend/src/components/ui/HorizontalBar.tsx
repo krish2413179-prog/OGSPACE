@@ -31,13 +31,18 @@ export function HorizontalBar({ label, value, showPercent = true, className = ""
         )}
       </div>
       {/* Track */}
-      <div style={{ width: "100%", height: "4px", background: "var(--color-border-dim)", borderRadius: 0 }}>
+      <div style={{ width: "100%", height: "6px", background: "rgba(0,0,0,0.4)", borderRadius: "var(--radius-sm)", overflow: "hidden", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.5)" }}>
         {/* Fill */}
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${clamped}%` }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          style={{ height: "100%", background: "var(--color-fg)", borderRadius: 0 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          style={{ 
+            height: "100%", 
+            background: "linear-gradient(90deg, var(--color-accent-primary), var(--color-accent-tertiary))", 
+            borderRadius: "var(--radius-sm)",
+            boxShadow: "0 0 10px rgba(59, 130, 246, 0.5)"
+          }}
         />
       </div>
     </div>

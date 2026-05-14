@@ -15,16 +15,16 @@ interface SharpCardProps {
 export function SharpCard({ children, className = "", style, onClick }: SharpCardProps) {
   return (
     <div
-      className={className}
+      className={`glass-panel ${className}`}
       onClick={onClick}
       style={{
-        border: "1px solid var(--color-border)",
-        borderRadius: 0,
-        background: "var(--color-bg)",
-        padding: "20px",
+        padding: "24px",
         cursor: onClick ? "pointer" : undefined,
+        transition: "transform 0.2s ease, box-shadow 0.2s ease",
         ...style,
       }}
+      onMouseEnter={onClick ? (e) => e.currentTarget.style.transform = "translateY(-2px)" : undefined}
+      onMouseLeave={onClick ? (e) => e.currentTarget.style.transform = "translateY(0)" : undefined}
     >
       {children}
     </div>
