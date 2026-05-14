@@ -268,7 +268,9 @@ function computeDimensionScores(vectorBuffer: Buffer): {
 
 // ── Worker factory ────────────────────────────────────────────────────────────
 
-export function createModelTrainingWorker(): Worker<TrainModelJobData, TrainModelJobResult> {
+export function createModelTrainingWorker(
+  broadcast?: (userId: string, event: string, payload: unknown) => void
+): Worker<TrainModelJobData, TrainModelJobResult> {
   const worker = new Worker<TrainModelJobData, TrainModelJobResult>(
     "model-training",
     processTrainModelJob,
@@ -278,12 +280,23 @@ export function createModelTrainingWorker(): Worker<TrainModelJobData, TrainMode
     }
   );
 
-  worker.on("completed", (job, result) =>
+  worker.on("completed", (job, result) => {
     logger.info(
-      { jobId: job.id, modelId: result.modelId, version: result.version },
+      { jobId: job.id, modelId: result.modelId, version: result.version, ogStorageCid: result.ogStorageCid },
       "ModelTrainingWorker: job completed"
-    )
-  );
+    );
+    // Notify frontend in real-time so the dashboard updates without a page refresh
+    if (broadcast) {
+      broadcast(job.data.userId, "model:evolved", {
+        userId: job.data.userId,
+        walletAddress: job.data.walletAddress,
+        modelId: result.modelId,
+        version: result.version,
+        ogStorageCid: result.ogStorageCid,
+        performanceScore: result.performanceScore,
+      });
+    }
+  });
 
   worker.on("failed", (job, err) =>
     logger.error({ jobId: job?.id, err }, "ModelTrainingWorker: job failed")

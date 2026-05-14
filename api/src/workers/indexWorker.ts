@@ -15,6 +15,7 @@
 import { Queue, Worker, type Job } from "bullmq";
 import { redis, bullmqConnection } from "../plugins/redis.js";
 import { fullIndex, incrementalIndex } from "../services/indexer/ogIndexer.js";
+import { modelTrainingQueue } from "./trainWorker.js";
 import { logger } from "../lib/logger.js";
 import type { Address } from "viem";
 
@@ -92,6 +93,14 @@ export function createIndexingProcessor(broadcast: BroadcastFn) {
         );
         broadcast(userId, "indexing:complete", { userId, walletAddress, totalActions: result.total, newRecords: result.newRecords });
         logger.info({ userId, walletAddress, total: result.total }, "Full indexing complete");
+
+        // ── Auto-trigger model retraining after full index ─────────────────
+        if (result.total > 0) {
+          const jobId = `train:${userId}:auto:full:${Date.now()}`;
+          await modelTrainingQueue.add("train:auto", { userId, walletAddress }, { jobId, removeOnComplete: { count: 20 }, removeOnFail: { count: 10 } });
+          logger.info({ userId, walletAddress, totalActions: result.total }, "Auto-triggered model retraining after full index");
+          broadcast(userId, "model:retraining", { userId, walletAddress, trigger: "full_index", totalActions: result.total });
+        }
       } else {
         const fromBlock = BigInt(job.data.fromBlock);
         const result = await incrementalIndex({ userId, walletAddress: walletAddress as Address, chainId, fromBlock });
@@ -108,6 +117,12 @@ export function createIndexingProcessor(broadcast: BroadcastFn) {
 
         if (result.newRecords > 0) {
           broadcast(userId, "indexing:complete", { userId, walletAddress, totalActions: current.totalActions + result.newRecords, newRecords: result.newRecords });
+
+          // ── Auto-trigger model retraining when new transactions found ──
+          const jobId = `train:${userId}:auto:incremental:${Date.now()}`;
+          await modelTrainingQueue.add("train:auto", { userId, walletAddress }, { jobId, removeOnComplete: { count: 20 }, removeOnFail: { count: 10 } });
+          logger.info({ userId, walletAddress, newRecords: result.newRecords }, "Auto-triggered model retraining after new transactions indexed");
+          broadcast(userId, "model:retraining", { userId, walletAddress, trigger: "new_transactions", newRecords: result.newRecords });
         }
       }
     } catch (err) {

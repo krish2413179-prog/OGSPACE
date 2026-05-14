@@ -31,8 +31,8 @@ export function startAllWorkers(broadcast: BroadcastFn): void {
   const indexingWorker = createIndexingWorker(broadcast);
   logger.info("IndexingWorker started (concurrency 5)");
 
-  // Model training worker (concurrency 2)
-  const trainingWorker = createModelTrainingWorker();
+  // Model training worker (concurrency 2) — broadcast wires up model:evolved events
+  const trainingWorker = createModelTrainingWorker(broadcast);
   logger.info("ModelTrainingWorker started (concurrency 2)");
 
   // Agent execute worker (concurrency 10)
