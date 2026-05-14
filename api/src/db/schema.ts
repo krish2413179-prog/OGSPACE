@@ -76,10 +76,16 @@ export const behaviorModels = pgTable(
     vectorDimensions: integer("vector_dimensions").default(512),
     modelMetadata: jsonb("model_metadata"),
     isCurrent: boolean("is_current").default(false),
+    // "own" = user's own wallet (auto-retrains), "snapshot" = one-time analysis
+    // of another address, "purchased" = bought from marketplace
+    modelType: varchar("model_type", { length: 20 }).notNull().default("own"),
+    // For snapshots: the address that was analyzed (not the owner's address)
+    sourceAddress: varchar("source_address", { length: 42 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   },
   (table) => ({
     userIdx: index("idx_behavior_models_user_id").on(table.userId),
+    typeIdx: index("idx_behavior_models_type").on(table.modelType),
   })
 );
 

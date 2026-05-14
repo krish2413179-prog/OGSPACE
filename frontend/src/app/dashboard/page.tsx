@@ -5,7 +5,7 @@
  * Requirements: 11.1–11.6
  */
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAppStore } from "@/store/appStore";
@@ -43,6 +43,11 @@ export default function DashboardPage() {
   const setIndexingStatus = useAppStore((s) => s.setIndexingStatus);
   const setPendingSuggestion = useAppStore((s) => s.setPendingSuggestion);
 
+  const [snapshots, setSnapshots] = useState<any[]>([]);
+  const [analyzeTarget, setAnalyzeTarget] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState("");
+
   // Connect WebSocket
   useWebSocket();
 
@@ -57,9 +62,10 @@ export default function DashboardPage() {
 
     const load = async () => {
       try {
-        const [statusRes, modelRes] = await Promise.allSettled([
+        const [statusRes, modelRes, snapshotsRes] = await Promise.allSettled([
           api.indexing.status(jwt),
           api.models.current(jwt),
+          api.models.snapshots(jwt),
         ]);
 
         if (statusRes.status === "fulfilled") {
@@ -91,6 +97,10 @@ export default function DashboardPage() {
             } : undefined,
             modelMetadata: m.modelMetadata,
           });
+        }
+
+        if (snapshotsRes.status === "fulfilled") {
+          setSnapshots(snapshotsRes.value.snapshots);
         }
 
         try {
@@ -358,6 +368,103 @@ export default function DashboardPage() {
               </SharpCard>
             </SlideUp>
           )}
+
+          {/* Analyze Any Wallet */}
+          <SlideUp delay={0.35}>
+            <SharpCard>
+              <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Analyze Any Wallet</p>
+              <p style={{ fontSize: "11px", color: "var(--color-secondary)", marginBottom: "16px" }}>
+                Generate a one-time behavioral snapshot of any public address on 0G Galileo.
+              </p>
+              <input
+                type="text"
+                placeholder="0x..."
+                value={analyzeTarget}
+                onChange={(e) => setAnalyzeTarget(e.target.value)}
+                style={{
+                  width: "100%",
+                  background: "transparent",
+                  border: "1px solid var(--color-border-dim)",
+                  color: "var(--color-fg)",
+                  padding: "10px",
+                  fontSize: "12px",
+                  marginBottom: "12px",
+                  fontFamily: "var(--font-mono)",
+                }}
+              />
+              {analyzeError && (
+                <p style={{ fontSize: "11px", color: "red", marginBottom: "12px" }}>{analyzeError}</p>
+              )}
+              <button
+                onClick={async () => {
+                  if (!jwt || !analyzeTarget) return;
+                  setAnalyzing(true);
+                  setAnalyzeError("");
+                  try {
+                    const res = await api.models.analyze(jwt, analyzeTarget);
+                    // Refresh snapshots
+                    const snapRes = await api.models.snapshots(jwt);
+                    setSnapshots(snapRes.snapshots);
+                    setAnalyzeTarget("");
+                  } catch (err: any) {
+                    setAnalyzeError(err.message || "Analysis failed");
+                  } finally {
+                    setAnalyzing(false);
+                  }
+                }}
+                disabled={analyzing || !analyzeTarget}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  background: "var(--color-fg)",
+                  color: "var(--color-bg)",
+                  border: "none",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  cursor: analyzing || !analyzeTarget ? "not-allowed" : "pointer",
+                  opacity: analyzing || !analyzeTarget ? 0.5 : 1,
+                }}
+              >
+                {analyzing ? "ANALYZING..." : "ANALYZE WALLET"}
+              </button>
+            </SharpCard>
+          </SlideUp>
+
+          {/* Snapshots List */}
+          {snapshots.length > 0 && (
+            <SlideUp delay={0.4}>
+              <SharpCard>
+                <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Saved Snapshots</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {snapshots.map((snap) => (
+                    <div key={snap.id} style={{ borderBottom: "1px solid var(--color-border-dim)", paddingBottom: "16px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                        <div>
+                          <p style={{ fontSize: "12px", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
+                            {snap.sourceAddress.slice(0, 6)}…{snap.sourceAddress.slice(-4)}
+                          </p>
+                          <p style={{ fontSize: "10px", color: "var(--color-secondary)", marginTop: "2px" }}>
+                            {new Date(snap.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <p style={{ fontSize: "14px", fontWeight: 700 }}>{formatScore(snap.performanceScore)}</p>
+                          <span style={{ fontSize: "9px", border: "1px solid var(--color-border-dim)", padding: "2px 4px", textTransform: "uppercase" }}>SNAPSHOT</span>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--color-secondary)" }}>
+                        <span>CID: {truncate(snap.ogStorageCid, 12)}</span>
+                        <span>{snap.totalActionsTrained} txs</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SharpCard>
+            </SlideUp>
+          )}
+
         </div>
       </div>
     </main>
