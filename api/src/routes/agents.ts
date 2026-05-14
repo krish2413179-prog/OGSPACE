@@ -13,11 +13,55 @@
 import { createHash } from "crypto";
 import type { FastifyInstance } from "fastify";
 import { eq, desc, and, count } from "drizzle-orm";
+import { createWalletClient, createPublicClient, http, parseAbi } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { db } from "../plugins/db.js";
 import { agentDeployments, agentActions, behaviorModels } from "../db/schema.js";
 import { authenticate } from "../middleware/authenticate.js";
 import { logger } from "../lib/logger.js";
 import type { JwtPayload, AgentMode } from "../types/index.js";
+
+const AGENT_REGISTRY_ABI = parseAbi([
+  "function registerAgent(string calldata agentId, uint256 soulTokenId, uint8 mode, address agentAddress) external",
+  "function deactivateAgent() external",
+  "function updateMode(uint8 newMode) external",
+]);
+
+const MODE_MAP: Record<AgentMode, number> = { OBSERVE: 0, SUGGEST: 1, EXECUTE: 2 };
+
+async function callAgentRegistry(
+  fnName: "registerAgent" | "deactivateAgent" | "updateMode",
+  args: unknown[],
+  ownerAddress: string
+): Promise<string | null> {
+  const privateKey = process.env.BACKEND_PRIVATE_KEY as `0x${string}` | undefined;
+  const registryAddress = process.env.AGENT_REGISTRY_ADDRESS as `0x${string}` | undefined;
+  const rpcUrl = process.env.OG_RPC_URL ?? "https://evmrpc-testnet.0g.ai";
+
+  if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000" || !registryAddress || registryAddress === "0x0000000000000000000000000000000000000000") {
+    logger.warn({ ownerAddress, fnName }, "AgentRoutes: contract not configured, skipping on-chain call");
+    return null;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey);
+    const publicClient = createPublicClient({ transport: http(rpcUrl) });
+    const walletClient = createWalletClient({ account, transport: http(rpcUrl) });
+    const { request } = await publicClient.simulateContract({
+      address: registryAddress,
+      abi: AGENT_REGISTRY_ABI,
+      functionName: fnName as any,
+      args: args as any,
+      account,
+    });
+    const txHash = await walletClient.writeContract(request);
+    logger.info({ txHash, fnName, ownerAddress }, "AgentRoutes: on-chain tx sent");
+    return txHash;
+  } catch (err) {
+    logger.error({ err, fnName, ownerAddress }, "AgentRoutes: on-chain call failed (non-fatal)");
+    return null;
+  }
+}
 
 async function getUnscheduleAgent(): Promise<(id: string) => Promise<void>> {
   const { unscheduleAgent } = await import("../workers/agentWorker.js");
@@ -76,9 +120,20 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     if (!newAgent) return reply.status(500).send({ error: "Internal Server Error", message: "Failed to persist agent record." });
 
     await enqueueDecisionLoop(newAgent.id, walletAddress, mode);
-    logger.info({ agentId: newAgent.id, walletAddress, mode }, "AgentRoutes: agent deployed");
 
-    return reply.status(201).send({ id: newAgent.id, ownerAddress: newAgent.ownerAddress, ogAgentId: newAgent.ogAgentId, soulTokenId: newAgent.soulTokenId, mode: newAgent.mode, isActive: newAgent.isActive, actionsTaken: newAgent.actionsTaken, deployedAt: newAgent.deployedAt, modelCid: latestModel.ogStorageCid, modelVersion: latestModel.version });
+    // Register agent on-chain in AgentRegistry (non-fatal if fails)
+    const backendAddress = process.env.BACKEND_PRIVATE_KEY
+      ? (await import("viem/accounts")).privateKeyToAccount(process.env.BACKEND_PRIVATE_KEY as `0x${string}`).address
+      : "0x0000000000000000000000000000000000000000" as `0x${string}`;
+    const onChainTx = await callAgentRegistry(
+      "registerAgent",
+      [ogAgentId, BigInt(soulTokenId ?? 0), MODE_MAP[mode], backendAddress],
+      walletAddress
+    );
+
+    logger.info({ agentId: newAgent.id, walletAddress, mode, onChainTx }, "AgentRoutes: agent deployed");
+
+    return reply.status(201).send({ id: newAgent.id, ownerAddress: newAgent.ownerAddress, ogAgentId: newAgent.ogAgentId, soulTokenId: newAgent.soulTokenId, mode: newAgent.mode, isActive: newAgent.isActive, actionsTaken: newAgent.actionsTaken, deployedAt: newAgent.deployedAt, modelCid: latestModel.ogStorageCid, modelVersion: latestModel.version, onChainTx });
   });
 
   app.get("/current", { preHandler: authenticate }, async (request, reply) => {

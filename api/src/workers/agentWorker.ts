@@ -7,12 +7,14 @@
 
 import { Queue, Worker, type Job } from "bullmq";
 import { eq, desc } from "drizzle-orm";
-import { createHash } from "crypto";
+import { createWalletClient, createPublicClient, http, parseAbi } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { db } from "../plugins/db.js";
 import { redis, bullmqConnection } from "../plugins/redis.js";
 import { agentDeployments, agentActions, behaviorModels } from "../db/schema.js";
 import { evaluate as guardianEvaluate } from "../services/agent/guardian.js";
 import { runInference } from "../services/agent/ogCompute.js";
+import { uploadMetadata } from "../services/og/storage.js";
 import { logger } from "../lib/logger.js";
 import type { BroadcastFn } from "./indexWorker.js";
 import type { AgentMode } from "../types/index.js";
@@ -81,20 +83,69 @@ async function incrementDailySpend(agentId: string, amountUsd: number): Promise<
   }
 }
 
-async function submitTransaction(agentId: string, rec: { actionType: string; protocol: string; asset: string; amountUsd: number }): Promise<string> {
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  return `0x${Buffer.from(`mock:${agentId}:${rec.actionType}:${Date.now()}`).toString("hex").slice(0, 64)}`;
+// ── 0G Chain: AgentRegistry ABI (recordAction only) ─────────────────────────
+
+const AGENT_REGISTRY_ABI = parseAbi([
+  "function recordAction(address agentOwner) external",
+]);
+
+// ── Real on-chain transaction via AgentRegistry ───────────────────────────────
+
+async function submitTransaction(
+  ownerAddress: string,
+  rec: { actionType: string; protocol: string; asset: string; amountUsd: number }
+): Promise<string> {
+  const privateKey = process.env.BACKEND_PRIVATE_KEY as `0x${string}` | undefined;
+  const registryAddress = process.env.AGENT_REGISTRY_ADDRESS as `0x${string}` | undefined;
+  const rpcUrl = process.env.OG_RPC_URL ?? "https://evmrpc-testnet.0g.ai";
+
+  if (
+    !privateKey ||
+    privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000" ||
+    !registryAddress ||
+    registryAddress === "0x0000000000000000000000000000000000000000"
+  ) {
+    // Fallback: simulate tx hash (dev/staging)
+    logger.warn({ ownerAddress }, "AgentWorker: BACKEND_PRIVATE_KEY or AGENT_REGISTRY_ADDRESS not set — simulating tx");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return `0xsim${Buffer.from(`${ownerAddress}:${rec.actionType}:${Date.now()}`).toString("hex").slice(0, 60)}`;
+  }
+
+  const account = privateKeyToAccount(privateKey);
+  const publicClient = createPublicClient({ transport: http(rpcUrl) });
+  const walletClient = createWalletClient({ account, transport: http(rpcUrl) });
+
+  const { request } = await publicClient.simulateContract({
+    address: registryAddress,
+    abi: AGENT_REGISTRY_ABI,
+    functionName: "recordAction",
+    args: [ownerAddress as `0x${string}`],
+    account,
+  });
+
+  const txHash = await walletClient.writeContract(request);
+  logger.info({ txHash, ownerAddress, actionType: rec.actionType, protocol: rec.protocol }, "AgentWorker: recordAction tx submitted on 0G Chain");
+  return txHash;
 }
 
-async function uploadDecisionLog(agentId: string, log: Record<string, unknown>): Promise<string> {
-  const content = JSON.stringify(log);
-  const cid = `bafymock${createHash("sha256").update(content).digest("hex").slice(0, 48)}`;
+// ── Real 0G Storage decision log upload ──────────────────────────────────────
+
+async function uploadDecisionLog(
+  agentId: string,
+  log: Record<string, unknown>
+): Promise<string> {
   try {
-    await redis.set(`og:decision:${cid}`, content, "EX", 30 * 24 * 60 * 60);
+    const cid = await uploadMetadata(`agent:decision:${agentId}:${Date.now()}`, log);
+    return cid;
   } catch (err) {
-    logger.warn({ err, agentId }, "AgentWorker: failed to upload decision log");
+    logger.warn({ err, agentId }, "AgentWorker: failed to upload decision log to 0G Storage");
+    // Fallback to Redis only
+    const content = JSON.stringify(log);
+    const { createHash } = await import("crypto");
+    const cid = `bafymock${createHash("sha256").update(content).digest("hex").slice(0, 48)}`;
+    await redis.set(`og:decision:${cid}`, content, "EX", 30 * 24 * 60 * 60);
+    return cid;
   }
-  return cid;
 }
 
 export async function runDecisionCycle(
@@ -201,7 +252,7 @@ export async function runDecisionCycle(
   if (mode === "EXECUTE") {
     let txHash: string | undefined;
     try {
-      txHash = await submitTransaction(agentId, recommendation);
+      txHash = await submitTransaction(ownerAddress, recommendation);
     } catch (err) {
       logger.error({ err, agentId }, "AgentWorker: tx submission failed");
       await db.insert(agentActions).values({
