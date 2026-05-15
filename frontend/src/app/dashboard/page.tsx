@@ -133,10 +133,10 @@ export default function DashboardPage() {
   const dims = currentModel?.dimensionScores;
 
   return (
-    <main style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 20px" }}>
+    <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "64px 32px" }}>
       {/* Header */}
       <FadeIn>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "48px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "64px" }}>
           <div>
             <h1 style={{ fontSize: "20px", fontWeight: 700, letterSpacing: "-0.01em" }}>MIRRORMIND</h1>
             <p style={{ color: "var(--color-secondary)", fontSize: "11px", marginTop: "4px" }}>
@@ -169,7 +169,7 @@ export default function DashboardPage() {
         </div>
       </FadeIn>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: "40px" }}>
         {/* Left column */}
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
 

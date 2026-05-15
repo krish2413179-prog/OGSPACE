@@ -32,7 +32,7 @@ export default function LandingPage() {
 
       <div style={{ position: "relative", zIndex: 1, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px" }}>
         <FadeIn>
-          <div style={{ maxWidth: "800px", width: "100%", textAlign: "center" }}>
+          <div style={{ maxWidth: "1200px", width: "100%", textAlign: "center" }}>
             
             {/* Hero Section */}
             <div style={{ marginBottom: "64px", animation: "float 6s ease-in-out infinite" }}>
