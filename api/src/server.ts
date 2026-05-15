@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import fastifyWebsocket from "@fastify/websocket";
 import jwt from "@fastify/jwt";
 import { logger } from "./lib/logger.js";
 import type { JwtPayload } from "./types/index.js";
@@ -21,6 +22,28 @@ export async function buildApp() {
   await app.register(cors, {
     origin: true,
     credentials: true,
+  });
+
+  await app.register(fastifyWebsocket);
+
+  app.get("/ws", { websocket: true }, (connection, req) => {
+    const token = (req.query as any).token;
+    if (!token) {
+      connection.socket.close();
+      return;
+    }
+    try {
+      const decoded = app.jwt.verify(token) as JwtPayload;
+      const userId = decoded.userId;
+      if (!wsClients.has(userId)) wsClients.set(userId, new Set());
+      wsClients.get(userId)!.add(connection.socket);
+
+      connection.socket.on("close", () => {
+        wsClients.get(userId)?.delete(connection.socket);
+      });
+    } catch {
+      connection.socket.close();
+    }
   });
 
   await app.register(jwt, {

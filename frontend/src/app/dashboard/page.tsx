@@ -216,7 +216,15 @@ export default function DashboardPage() {
                         if (btn) btn.innerText = "TRAINING...";
                         
                         const oldVersion = currentModel.version;
+                        let attempts = 0;
                         const interval = setInterval(async () => {
+                          attempts++;
+                          if (attempts > 20) { // 60 seconds timeout
+                            clearInterval(interval);
+                            if (btn) btn.innerText = "FAILED";
+                            setTimeout(() => { if (btn) btn.innerText = "RETRAIN MODEL"; }, 3000);
+                            return;
+                          }
                           try {
                             const modelRes = await api.models.current(jwt);
                             if (modelRes && modelRes.id && modelRes.version > oldVersion) {
@@ -397,7 +405,7 @@ export default function DashboardPage() {
                   {truncate(currentModel.ogStorageCid, 40)}
                 </p>
                 <a
-                  href={`https://storage.0g.ai/${currentModel.ogStorageCid}`}
+                  href={`https://storagescan-galileo.0g.ai/file/${currentModel.ogStorageCid}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ fontSize: "11px", textDecoration: "none", border: "1px solid var(--color-border-dim)", padding: "6px 12px" }}
@@ -519,6 +527,38 @@ export default function DashboardPage() {
 
         </div>
       </div>
+      {/* Indexing Overlay Modal */}
+      {(indexingStatus === "PENDING" || indexingStatus === "IN_PROGRESS") && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0, 0, 0, 0.85)",
+          backdropFilter: "blur(4px)",
+          display: "flex", flexDirection: "column",
+          justifyContent: "center", alignItems: "center",
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: "var(--color-bg)",
+            border: "1px solid var(--color-fg)",
+            padding: "40px",
+            width: "400px",
+            maxWidth: "90%",
+            textAlign: "center"
+          }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+              Indexing in Progress
+            </h2>
+            <div style={{ marginBottom: "24px" }}>
+              <span style={{ fontSize: "32px", fontWeight: 700 }}>{totalActions.toLocaleString()}</span>
+              <p style={{ fontSize: "10px", color: "var(--color-secondary)", marginTop: "8px" }}>actions indexed on 0G Galileo</p>
+            </div>
+            <HorizontalBar label="Progress" value={indexingProgress} />
+            <p style={{ fontSize: "10px", color: "var(--color-secondary)", marginTop: "24px", lineHeight: 1.5 }}>
+              Please wait while we securely sync your on-chain history. This provides the behavioral context for your AI Agent.
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
