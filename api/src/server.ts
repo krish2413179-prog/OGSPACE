@@ -92,6 +92,7 @@ declare module "fastify" {
   }
 }
 
-if (process.argv[1] === new URL(import.meta.url).pathname) {
+import { fileURLToPath } from "url";
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   start();
 }
