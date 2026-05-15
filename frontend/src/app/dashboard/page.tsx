@@ -205,6 +205,35 @@ export default function DashboardPage() {
                   <StatRow label="Version" value={`v${currentModel.version}`} />
                   <StatRow label="Actions trained" value={(currentModel.totalActionsTrained ?? 0).toLocaleString()} />
                   <StatRow label="Dimensions" value={currentModel.vectorDimensions ?? 512} />
+                  <button
+                    id="retrain-btn"
+                    onClick={async () => {
+                      if (!jwt) return;
+                      const btn = document.getElementById("retrain-btn");
+                      if (btn) btn.innerText = "ENQUEUING...";
+                      try {
+                        await api.models.train(jwt);
+                        if (btn) btn.innerText = "ENQUEUED";
+                        setTimeout(() => { if (btn) btn.innerText = "RETRAIN MODEL"; }, 3000);
+                      } catch (err) {
+                        if (btn) btn.innerText = "FAILED";
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      marginTop: "16px",
+                      padding: "8px",
+                      background: "transparent",
+                      color: "var(--color-fg)",
+                      border: "1px solid var(--color-border-dim)",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      cursor: "pointer"
+                    }}
+                  >
+                    RETRAIN MODEL
+                  </button>
                 </div>
               </SharpCard>
             </SlideUp>
