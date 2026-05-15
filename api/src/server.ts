@@ -34,7 +34,8 @@ export function buildApp() {
       "http://localhost:3002",
       "http://localhost:3003",
       process.env.FRONTEND_URL,
-    ].filter(Boolean) as string[],
+      /\.vercel\.app$/, // Allow all Vercel deployments
+    ].filter(Boolean) as (string | RegExp)[],
     credentials: true,
   });
 
