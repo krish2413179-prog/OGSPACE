@@ -4,13 +4,7 @@
  * Uploads model weights and metadata directly to the 0G Galileo testnet
  * using MemData (in-memory buffer upload — no temp files required).
  *
- * Falls back to Redis mock CID if the upload fails or config is missing,
- * so the system never breaks in dev/staging environments.
- *
- * Key patterns (Redis fallback):
- *   og:model:{walletAddress}:{version}   — binary model weights
- *   og:meta:{cid}                        — metadata JSON
- *   og:cid:{cid}                         — raw blob by CID
+ * This service now requires real 0G infrastructure; mock fallbacks have been removed.
  *
  * Requirements: 9.1, 9.6
  */
@@ -54,13 +48,6 @@ async function withUploadRetry<T>(
   throw lastError;
 }
 
-// ── CID generation (fallback) ─────────────────────────────────────────────────
-
-function generateMockCid(content: Buffer | string): string {
-  const buf = typeof content === "string" ? Buffer.from(content, "utf8") : content;
-  const hash = createHash("sha256").update(buf).digest("hex");
-  return `bafymock${hash.slice(0, 48)}`;
-}
 
 // ── Real 0G Storage upload ────────────────────────────────────────────────────
 
@@ -78,11 +65,7 @@ async function uploadToOgStorage(
     !indexerRpc ||
     !evmRpc
   ) {
-    logger.warn(
-      { label },
-      "0G Storage: BACKEND_PRIVATE_KEY not set or RPC missing — falling back to mock CID"
-    );
-    return null;
+    throw new Error("0G Storage: BACKEND_PRIVATE_KEY or RPC configuration missing. Real 0G integration is required.");
   }
 
   try {
@@ -110,16 +93,15 @@ async function uploadToOgStorage(
     // Cast signer to any to avoid ESM/CJS ethers type conflict
     const [tx, uploadErr] = await indexer.upload(memData, evmRpc, signer as any);
     if (uploadErr !== null) {
-      logger.error({ uploadErr, label }, "0G Storage: upload failed");
-      return null;
+      throw new Error(`0G Storage upload failed: ${uploadErr}`);
     }
 
     logger.info({ tx, rootHash, label }, "0G Storage: upload successful");
     // Return the root hash as the CID — this is a real verifiable hash on 0G
-    return rootHash ?? null;
+    return rootHash;
   } catch (err) {
-    logger.error({ err, label }, "0G Storage: unexpected error during upload");
-    return null;
+    logger.error({ err, label }, "0G Storage: upload error");
+    throw err;
   }
 }
 
@@ -128,12 +110,12 @@ async function uploadToOgStorage(
 /**
  * Upload model weights binary blob to 0G Storage.
  *
- * Tries real 0G Storage first. Falls back to Redis mock if unavailable.
+ * Tries real 0G Storage upload. Throws error if unavailable.
  *
  * @param walletAddress - Owner wallet address.
  * @param modelBuffer   - Raw binary model weights (512 float32 LE bytes).
  * @param metadata      - Arbitrary metadata object stored alongside the weights.
- * @returns CID string (real rootHash or mock bafymock* fallback).
+ * @returns CID string (real rootHash). Throws error on failure.
  */
 export async function uploadModel(
   walletAddress: string,
@@ -155,21 +137,14 @@ export async function uploadModel(
     "utf8"
   );
 
-  // Try real 0G Storage upload
-  let cid: string | null = null;
-  try {
-    cid = await withUploadRetry(
-      () => uploadToOgStorage(fullPayload, label),
-      label
-    );
-  } catch {
-    cid = null;
-  }
+  // Try real 0G Storage upload (throws on failure)
+  const cid = await withUploadRetry(
+    () => uploadToOgStorage(fullPayload, label),
+    label
+  );
 
-  // Fall back to deterministic mock CID if upload fails
   if (!cid) {
-    cid = generateMockCid(modelBuffer);
-    logger.warn({ cid, walletAddress, version }, "0G Storage: using mock CID fallback");
+    throw new Error("0G Storage: Upload returned empty CID");
   }
 
   // Always cache in Redis for fast lookups by the Agent & API
@@ -219,15 +194,9 @@ export async function uploadMetadata(
   metadata: Record<string, unknown>
 ): Promise<string> {
   const payload = Buffer.from(JSON.stringify(metadata), "utf8");
-  let cid: string | null = null;
-  try {
-    cid = await withUploadRetry(() => uploadToOgStorage(payload, label), label);
-  } catch {
-    cid = null;
-  }
+  const cid = await withUploadRetry(() => uploadToOgStorage(payload, label), label);
   if (!cid) {
-    cid = generateMockCid(payload);
-    logger.warn({ cid, label }, "0G Storage: uploadMetadata using mock CID fallback");
+    throw new Error("0G Storage: Upload returned empty CID for metadata");
   }
   await redis.set(`og:meta:${cid}`, JSON.stringify(metadata), "EX", STORAGE_TTL_SECONDS);
   logger.info({ label, cid }, "0G Storage: metadata uploaded");

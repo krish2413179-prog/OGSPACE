@@ -9,7 +9,7 @@ import { Queue, Worker, type Job } from "bullmq";
 import { eq, and, gte, lt } from "drizzle-orm";
 import { createGzip } from "zlib";
 import { promisify } from "util";
-import { createHash } from "crypto";
+import { uploadMetadata } from "../services/og/storage.js";
 import { db } from "../plugins/db.js";
 import { redis, bullmqConnection } from "../plugins/redis.js";
 import { walletActions, users } from "../db/schema.js";
@@ -77,7 +77,7 @@ async function archiveWallet(walletAddress: string, weekISO: string): Promise<st
   const jsonBuffer = Buffer.from(JSON.stringify(payload), "utf8");
   const compressed = await gzip(jsonBuffer);
 
-  const cid = `bafymock${createHash("sha256").update(compressed).digest("hex").slice(0, 48)}`;
+  const cid = await uploadMetadata(`archive:${walletAddress.toLowerCase()}:${weekISO}`, payload);
 
   await redis.set(`og:archive:${walletAddress.toLowerCase()}:${weekISO}`, compressed.toString("base64"), "EX", ARCHIVE_CID_TTL_SECONDS);
   await redis.set(`og:cid:${cid}`, compressed.toString("base64"), "EX", ARCHIVE_CID_TTL_SECONDS);

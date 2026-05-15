@@ -134,18 +134,10 @@ async function uploadDecisionLog(
   agentId: string,
   log: Record<string, unknown>
 ): Promise<string> {
-  try {
-    const cid = await uploadMetadata(`agent:decision:${agentId}:${Date.now()}`, log);
-    return cid;
-  } catch (err) {
-    logger.warn({ err, agentId }, "AgentWorker: failed to upload decision log to 0G Storage");
-    // Fallback to Redis only
-    const content = JSON.stringify(log);
-    const { createHash } = await import("crypto");
-    const cid = `bafymock${createHash("sha256").update(content).digest("hex").slice(0, 48)}`;
-    await redis.set(`og:decision:${cid}`, content, "EX", 30 * 24 * 60 * 60);
-    return cid;
-  }
+  const cid = await uploadMetadata(`agent:decision:${agentId}:${Date.now()}`, log);
+  // Still cache in Redis for performance
+  await redis.set(`og:decision:${cid}`, JSON.stringify(log), "EX", 30 * 24 * 60 * 60);
+  return cid;
 }
 
 export async function runDecisionCycle(
