@@ -208,15 +208,48 @@ export default function DashboardPage() {
                   <button
                     id="retrain-btn"
                     onClick={async () => {
-                      if (!jwt) return;
+                      if (!jwt || !currentModel) return;
                       const btn = document.getElementById("retrain-btn");
                       if (btn) btn.innerText = "ENQUEUING...";
                       try {
                         await api.models.train(jwt);
-                        if (btn) btn.innerText = "ENQUEUED";
-                        setTimeout(() => { if (btn) btn.innerText = "RETRAIN MODEL"; }, 3000);
+                        if (btn) btn.innerText = "TRAINING...";
+                        
+                        const oldVersion = currentModel.version;
+                        const interval = setInterval(async () => {
+                          try {
+                            const modelRes = await api.models.current(jwt);
+                            if (modelRes && modelRes.id && modelRes.version > oldVersion) {
+                              clearInterval(interval);
+                              const m = modelRes;
+                              const meta = m.modelMetadata as Record<string, unknown> | null;
+                              const ds = meta?.dimensionScores as Record<string, number> | undefined;
+                              useAppStore.getState().setCurrentModel({
+                                id: m.id,
+                                version: m.version,
+                                ogStorageCid: m.ogStorageCid,
+                                performanceScore: m.performanceScore,
+                                totalActionsTrained: m.totalActionsTrained,
+                                vectorDimensions: m.vectorDimensions,
+                                dimensionScores: ds ? {
+                                  riskProfile: ds.riskProfile ?? 0,
+                                  timingPatterns: ds.timingPatterns ?? 0,
+                                  protocolPreferences: ds.protocolPreferences ?? 0,
+                                  assetBehavior: ds.assetBehavior ?? 0,
+                                  decisionContext: ds.decisionContext ?? 0,
+                                  compositeScore: ds.compositeScore ?? 0,
+                                } : undefined,
+                                modelMetadata: m.modelMetadata,
+                              });
+                              if (btn) btn.innerText = "RETRAIN MODEL";
+                            }
+                          } catch {
+                            // Ignore 404s or errors while waiting
+                          }
+                        }, 3000);
                       } catch (err) {
                         if (btn) btn.innerText = "FAILED";
+                        setTimeout(() => { if (btn) btn.innerText = "RETRAIN MODEL"; }, 3000);
                       }
                     }}
                     style={{
