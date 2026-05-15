@@ -49,13 +49,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     grpc_port = int(os.getenv("GRPC_PORT", "50051"))
 
-    try:
-        from ml.grpc_server import serve as grpc_serve
+    if os.getenv("ENABLE_GRPC", "false").lower() == "true":
+        try:
+            from ml.grpc_server import serve as grpc_serve
 
-        _grpc_server = await grpc_serve(port=grpc_port)
-        logger.info("MirrorMind ML Microservice started (gRPC port %d)", grpc_port)
-    except Exception:
-        logger.exception("Failed to start gRPC server — continuing without gRPC")
+            _grpc_server = await grpc_serve(port=grpc_port)
+            logger.info("MirrorMind ML Microservice started (gRPC port %d)", grpc_port)
+        except Exception:
+            logger.exception("Failed to start gRPC server — continuing without gRPC")
+    else:
+        logger.info("MirrorMind ML Microservice started (gRPC disabled)")
 
     yield
 
