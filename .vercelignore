@@ -1,0 +1,10 @@
+api/
+ml/
+contracts/
+.github/
+.vscode/
+docs/
+README.md
+foundryup.ps1
+package-lock.json
+*.md

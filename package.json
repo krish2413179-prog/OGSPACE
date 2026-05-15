@@ -12,6 +12,8 @@
     "dev:ml": "python -m ml.main",
     "dev:all": "concurrently \"npm run dev:api\" \"npm run dev:frontend\" \"npm run dev:ml\"",
     "build:api": "npm install && npm run build --workspace=api && npm run db:migrate:prod --workspace=api",
+    "build:frontend": "npm install && npm run build --workspace=frontend",
+    "install:all": "npm install",
     "start:api": "npm run start --workspace=api",
     "build:ml": "pip install -r ml/requirements.txt",
     "start:ml": "python -m ml.main",
