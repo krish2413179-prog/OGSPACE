@@ -113,12 +113,14 @@ async function uploadToOgStorage(
         const newFileEventSig = "0x1801f92e21c33f20a6f88d752495bb38ec291e0d4734316d3e35a90940562e9a";
         
         for (const log of receipt.logs) {
+          logger.debug({ topics: log.topics, data: log.data }, "0G Storage: checking log for sequenceId");
           if (log.topics[0] === newFileEventSig) {
             // Check if this log is for our rootHash
             // topics[2] is the indexed root
             const logRoot = log.topics[2]?.toLowerCase();
             const normalizedRoot = (rootHash as string).startsWith("0x") ? (rootHash as string).toLowerCase() : `0x${(rootHash as string).toLowerCase()}`;
             
+            logger.debug({ logRoot, normalizedRoot }, "0G Storage: comparing root hashes");
             if (logRoot === normalizedRoot) {
               // seq is the first uint256 in data (32 bytes)
               const seqHex = ethers.dataSlice(log.data, 0, 32);
@@ -130,7 +132,12 @@ async function uploadToOgStorage(
         }
       }
       if (!sequenceId) {
-        logger.warn({ txHash, logsCount: receipt?.logs.length }, "0G Storage: could not find NewFile event for rootHash in receipt");
+        logger.warn({ 
+          txHash, 
+          rootHash,
+          logsCount: receipt?.logs.length,
+          allEventSigs: receipt?.logs.map(l => l.topics[0]) 
+        }, "0G Storage: could not find NewFile event for rootHash in receipt");
       }
     } catch (err) {
       logger.warn({ err, txHash }, "0G Storage: failed to wait for receipt or parse sequenceId");

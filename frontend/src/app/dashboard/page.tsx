@@ -523,7 +523,7 @@ export default function DashboardPage() {
                     currentModel.ogStorageSeq 
                       ? `https://storagescan-galileo.0g.ai/submission/${currentModel.ogStorageSeq}`
                       : currentModel.ogStorageTx
-                        ? `https://storagescan-galileo.0g.ai/tx/${currentModel.ogStorageTx}`
+                        ? `https://storagescan-galileo.0g.ai/submission/${currentModel.ogStorageTx}`
                         : `https://storagescan-galileo.0g.ai/submission/${currentModel.ogStorageCid}`
                   }
                   target="_blank"
@@ -567,7 +567,7 @@ export default function DashboardPage() {
                             href={
                               snap.ogStorageSeq 
                                 ? `https://storagescan-galileo.0g.ai/submission/${snap.ogStorageSeq}`
-                                : `https://storagescan-galileo.0g.ai/tx/${snap.ogStorageTx}`
+                                : `https://storagescan-galileo.0g.ai/submission/${snap.ogStorageTx}`
                             }
                             target="_blank"
                             rel="noopener noreferrer"
