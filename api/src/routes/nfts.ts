@@ -109,6 +109,10 @@ export async function nftRoutes(app: FastifyInstance): Promise<void> {
       modelId?: string;
       performanceScore?: number;
       totalActionsTrained?: number;
+      isRentable?: boolean;
+      rentalPricePerDay?: string;
+      isForSale?: boolean;
+      salePrice?: string;
     };
 
     if (!body.tokenId || !body.walletAddress || !body.ogStorageCid) {
@@ -123,15 +127,26 @@ export async function nftRoutes(app: FastifyInstance): Promise<void> {
         modelId: body.modelId ?? null,
         ogStorageCid: body.ogStorageCid,
         mintTx: body.mintTx ?? null,
-        performanceScore: body.performanceScore?.toFixed(2) ?? null,
+        performanceScore: body.performanceScore != null ? body.performanceScore.toFixed(2) : null,
         totalActionsTrained: body.totalActionsTrained ?? null,
-        isRentable: false,
-        isForSale: false,
+        isRentable: body.isRentable ?? false,
+        rentalPricePerDay: body.rentalPricePerDay ?? null,
+        isForSale: body.isForSale ?? false,
+        salePrice: body.salePrice ?? null,
         timesRented: 0,
       })
       .onConflictDoUpdate({
         target: soulNfts.tokenId,
-        set: { ogStorageCid: body.ogStorageCid, mintTx: body.mintTx ?? null },
+        set: {
+          ogStorageCid: body.ogStorageCid,
+          mintTx: body.mintTx ?? null,
+          performanceScore: body.performanceScore != null ? body.performanceScore.toFixed(2) : undefined,
+          totalActionsTrained: body.totalActionsTrained ?? undefined,
+          isRentable: body.isRentable ?? undefined,
+          rentalPricePerDay: body.rentalPricePerDay ?? undefined,
+          isForSale: body.isForSale ?? undefined,
+          salePrice: body.salePrice ?? undefined,
+        },
       })
       .returning();
 

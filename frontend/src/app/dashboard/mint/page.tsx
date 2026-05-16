@@ -11,7 +11,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt, usePublicClient } from "wagmi";
 import { useAppStore } from "@/store/appStore";
 import { api } from "@/lib/api";
 import { HorizontalBar, StatRow, SharpCard, FadeIn, SlideUp } from "@/components/ui";
@@ -64,6 +64,7 @@ interface MintParams {
 export default function MintPage() {
   const router = useRouter();
   const jwt = useAppStore((s) => s.jwt);
+  const walletAddress = useAppStore((s) => s.walletAddress);
   const currentModel = useAppStore((s) => s.currentModel);
 
   const [step, setStep] = useState<Step>(1);
@@ -77,7 +78,8 @@ export default function MintPage() {
   const [isPreparing, setIsPreparing] = useState(false);
 
   const { writeContract, data: txHash, isPending: isSigning } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+  const { isLoading: isConfirming, isSuccess: isConfirmed, data: txReceipt } = useWaitForTransactionReceipt({ hash: txHash });
+  const publicClient = usePublicClient();
 
   useEffect(() => {
     if (!jwt) router.push("/");
@@ -93,13 +95,44 @@ export default function MintPage() {
       .finally(() => setIsPreparing(false));
   }, [jwt]);
 
-  // On confirmation, sync to DB and show success
+  // On confirmation, parse token ID from logs and sync to DB
   useEffect(() => {
-    if (isConfirmed && txHash) {
-      setMintedTokenId(txHash.slice(0, 10)); // mock token ID from tx hash
+    if (isConfirmed && txHash && txReceipt && mintData) {
+      // Parse tokenId from Transfer event logs (topic[3] for ERC721 Transfer)
+      let tokenId: number | null = null;
+      for (const log of txReceipt.logs) {
+        // Transfer(address,address,uint256) — tokenId is the 3rd topic
+        if (log.topics && log.topics.length >= 4) {
+          const raw = log.topics[3];
+          if (raw) {
+            tokenId = parseInt(raw, 16);
+            break;
+          }
+        }
+      }
+
+      // Fallback: use first 8 chars of txHash if we can't parse it
+      const displayId = tokenId !== null ? String(tokenId) : txHash.slice(0, 10);
+      setMintedTokenId(displayId);
       setStep(3);
+
+      // Sync the minted NFT to the backend database
+      if (jwt && tokenId !== null && walletAddress) {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "https://ogspace-1.onrender.com"}/nfts/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${jwt}` },
+          body: JSON.stringify({
+            tokenId,
+            walletAddress,
+            mintTx: txHash,
+            ogStorageCid: mintData.ogStorageCid,
+            performanceScore: mintData.performanceScore,
+            totalActionsTrained: mintData.totalActionsTrained,
+          }),
+        }).catch(console.error);
+      }
     }
-  }, [isConfirmed, txHash]);
+  }, [isConfirmed, txHash, txReceipt, mintData, jwt]);
 
   const dims = currentModel?.dimensionScores;
 

@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const [analyzeTarget, setAnalyzeTarget] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
+  const [hideIndexingModal, setHideIndexingModal] = useState(false);
 
   // Connect WebSocket
   useWebSocket();
@@ -377,7 +378,7 @@ export default function DashboardPage() {
           {/* Pending suggestion */}
           {pendingSuggestion && (
             <SlideUp delay={0.2}>
-              <SharpCard style={{ borderColor: "var(--color-fg)" }}>
+              <SharpCard style={{ borderColor: "var(--color-accent-primary)" }}>
                 <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "12px" }}>Agent Suggestion</p>
                 <p style={{ fontSize: "13px", marginBottom: "8px" }}>
                   <strong>{pendingSuggestion.action.actionType}</strong> via {pendingSuggestion.action.protocol}
@@ -390,7 +391,7 @@ export default function DashboardPage() {
                 </p>
                 <div style={{ display: "flex", gap: "12px" }}>
                   <button className="btn-primary" onClick={() => setPendingSuggestion(null)} style={{ flex: 1, padding: "8px" }}>APPROVE</button>
-                  <button onClick={() => setPendingSuggestion(null)} style={{ flex: 1, padding: "8px", background: "rgba(255,255,255,0.05)", color: "var(--color-fg)", border: "1px solid var(--color-border-dim)", fontSize: "11px", fontWeight: 700, letterSpacing: "0.05em" }}>REJECT</button>
+                  <button onClick={() => setPendingSuggestion(null)} style={{ flex: 1, padding: "8px", background: "rgba(0,0,0,0.05)", color: "var(--color-fg)", border: "1px solid var(--color-border)", fontSize: "11px", fontWeight: 700, letterSpacing: "0.05em" }}>REJECT</button>
                 </div>
               </SharpCard>
             </SlideUp>
@@ -528,7 +529,7 @@ export default function DashboardPage() {
         </div>
       </div>
       {/* Indexing Overlay Modal */}
-      {(indexingStatus === "PENDING" || indexingStatus === "IN_PROGRESS") && (
+      {(indexingStatus === "PENDING" || indexingStatus === "IN_PROGRESS") && !hideIndexingModal && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
           background: "rgba(0, 0, 0, 0.85)",
@@ -538,14 +539,29 @@ export default function DashboardPage() {
           zIndex: 9999
         }}>
           <div style={{
-            background: "var(--color-bg)",
-            border: "1px solid var(--color-fg)",
+            background: "var(--color-bg-secondary)",
+            border: "1px solid var(--color-accent-primary)",
             padding: "40px",
             width: "400px",
             maxWidth: "90%",
-            textAlign: "center"
+            textAlign: "center",
+            position: "relative"
           }}>
-            <h2 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+            <button
+              onClick={() => setHideIndexingModal(true)}
+              style={{
+                position: "absolute", top: "12px", right: "16px",
+                background: "transparent", border: "none", color: "var(--color-secondary)",
+                fontSize: "16px", cursor: "pointer", padding: "4px"
+              }}
+            >
+              ✕
+            </button>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", color: "var(--color-accent-primary)" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animation: "spin 1s linear infinite" }}>
+                <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="16 32" />
+              </svg>
               Indexing in Progress
             </h2>
             <div style={{ marginBottom: "24px" }}>

@@ -22,6 +22,11 @@ async function request<T>(
 
   const res = await fetch(`${BASE_URL}${path}`, { ...fetchOptions, headers });
   if (!res.ok) {
+    if (res.status === 401) {
+      import("../store/appStore").then(({ useAppStore }) => {
+        useAppStore.getState().clearAuth();
+      });
+    }
     const body = await res.json().catch(() => ({}));
     throw Object.assign(new Error((body as { message?: string }).message ?? `HTTP ${res.status}`), { status: res.status, body });
   }
