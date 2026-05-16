@@ -119,27 +119,22 @@ async function uploadToOgStorage(
           const isSubmit = log.topics[0] === submitEventSig;
           
           if (isNewFile || isSubmit) {
-            // In NewFile, root is Topic 2. In Submit, identity (root) is also Topic 2.
-            const logRoot = log.topics[2]?.toLowerCase();
-            const normalizedRoot = (rootHash as string).startsWith("0x") ? (rootHash as string).toLowerCase() : `0x${(rootHash as string).toLowerCase()}`;
+            const normalizedRoot = (rootHash as string).startsWith("0x") ? (rootHash as string).toLowerCase().slice(2) : (rootHash as string).toLowerCase();
+            const logData = log.data.toLowerCase();
             
-            if (logRoot === normalizedRoot) {
+            // For NewFile, root is Topic 2. For Submit, root is buried in the encoded SubmissionData in log.data.
+            // A robust way to check is to see if our root exists in the topics OR the data.
+            const isMatch = log.topics[2]?.toLowerCase().includes(normalizedRoot) || logData.includes(normalizedRoot);
+            
+            if (isMatch) {
               try {
-                if (isNewFile) {
-                  // NewFile(address, bytes32, uint256 seq, ...) -> seq is first in data
-                  if (log.data.length >= 34) {
-                    const seqHex = ethers.dataSlice(log.data, 0, 32);
-                    sequenceId = ethers.toBigInt(seqHex).toString();
-                  }
-                } else {
-                  // Submit(address, bytes32, uint256 submissionIndex, ...) -> submissionIndex is first in data
-                  if (log.data.length >= 34) {
-                    const seqHex = ethers.dataSlice(log.data, 0, 32);
-                    sequenceId = ethers.toBigInt(seqHex).toString();
-                  }
+                // In both NewFile and Submit (latest), the first 32 bytes of data is the sequence/index
+                if (log.data.length >= 34) {
+                  const seqHex = ethers.dataSlice(log.data, 0, 32);
+                  sequenceId = ethers.toBigInt(seqHex).toString();
                 }
                 
-                // Fallback: if data is empty, check topics[3] just in case
+                // Fallback: check topics[3] for older versions
                 if (!sequenceId || sequenceId === "0") {
                   if (log.topics.length >= 4) {
                     sequenceId = ethers.toBigInt(log.topics[3]).toString();
