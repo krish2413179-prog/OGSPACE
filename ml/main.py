@@ -87,7 +87,7 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/", methods=["GET", "HEAD"])
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root() -> dict[str, str]:
     """Root endpoint — service info."""
     return {
