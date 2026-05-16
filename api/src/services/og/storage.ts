@@ -88,20 +88,25 @@ async function uploadToOgStorage(
     }
 
     const rootHash = tree!.rootHash();
+    if (!rootHash) {
+      logger.error({ label }, "0G Storage: rootHash is null");
+      return null;
+    }
     logger.info({ rootHash, label }, "0G Storage: uploading to 0G network...");
 
     // Cast signer to any to avoid ESM/CJS ethers type conflict
-    const [tx, uploadErr] = await indexer.upload(memData, evmRpc, signer as any);
+    const [txResult, uploadErr] = await indexer.upload(memData, evmRpc, signer as any);
     if (uploadErr !== null) {
       throw new Error(`0G Storage upload failed: ${uploadErr}`);
     }
 
-    logger.info({ tx, rootHash, label }, "0G Storage: upload successful, waiting for confirmation...");
+    const txHash = (txResult as any).txHash || txResult;
+    logger.info({ txHash, rootHash, label }, "0G Storage: upload successful, waiting for confirmation...");
 
     // Wait for receipt to get the sequence ID
     let sequenceId: string | null = null;
     try {
-      const receipt = await provider.waitForTransaction(tx);
+      const receipt = await provider.waitForTransaction(txHash as string);
       if (receipt) {
         // The Flow contract emits NewFile(sender, root, seq, size)
         // We look for an event where the second topic is the rootHash
@@ -122,10 +127,14 @@ async function uploadToOgStorage(
         }
       }
     } catch (err) {
-      logger.warn({ err, tx }, "0G Storage: failed to wait for receipt or parse sequenceId");
+      logger.warn({ err, txHash }, "0G Storage: failed to wait for receipt or parse sequenceId");
     }
 
-    return { rootHash, txHash: tx, sequenceId };
+    return { 
+      rootHash: rootHash as string, 
+      txHash: txHash as string, 
+      sequenceId 
+    };
   } catch (err) {
     logger.error({ err, label }, "0G Storage: upload error");
     throw err;

@@ -77,7 +77,7 @@ async function archiveWallet(walletAddress: string, weekISO: string): Promise<st
   const jsonBuffer = Buffer.from(JSON.stringify(payload), "utf8");
   const compressed = await gzip(jsonBuffer);
 
-  const cid = await uploadMetadata(`archive:${walletAddress.toLowerCase()}:${weekISO}`, payload);
+  const { rootHash: cid } = await uploadMetadata(`archive:${walletAddress.toLowerCase()}:${weekISO}`, payload);
 
   await redis.set(`og:archive:${walletAddress.toLowerCase()}:${weekISO}`, compressed.toString("base64"), "EX", ARCHIVE_CID_TTL_SECONDS);
   await redis.set(`og:cid:${cid}`, compressed.toString("base64"), "EX", ARCHIVE_CID_TTL_SECONDS);

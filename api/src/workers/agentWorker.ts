@@ -82,15 +82,6 @@ async function incrementDailySpend(agentId: string, amountUsd: number): Promise<
 
 // ── Real 0G Storage decision log upload ──────────────────────────────────────
 
-async function uploadDecisionLog(
-  agentId: string,
-  log: Record<string, unknown>
-): Promise<string> {
-  const cid = await uploadMetadata(`agent:decision:${agentId}:${Date.now()}`, log);
-  // Still cache in Redis for performance
-  await redis.set(`og:decision:${cid}`, JSON.stringify(log), "EX", 30 * 24 * 60 * 60);
-  return cid;
-}
 
 export async function runDecisionCycle(
   agentId: string,
