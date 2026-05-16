@@ -112,21 +112,36 @@ async function uploadToOgStorage(
         // Event signature hash: 0x1801f92e21c33f20a6f88d752495bb38ec291e0d4734316d3e35a90940562e9a
         const newFileEventSig = "0x2d799b6aa56f22ac0f834d49b6bb977eaf4fa4d57576d51d88c96f0131186570";
         
+        logger.info({ logsCount: receipt.logs.length, txHash }, "0G Storage: analyzing receipt logs");
         for (const log of receipt.logs) {
-          logger.debug({ topics: log.topics, data: log.data }, "0G Storage: checking log for sequenceId");
+          logger.info({ 
+            sig: log.topics[0], 
+            topicsCount: log.topics.length,
+            dataLength: log.data.length 
+          }, "0G Storage: log found");
+          
           if (log.topics[0] === newFileEventSig) {
-            // Check if this log is for our rootHash
-            // topics[2] is the indexed root
             const logRoot = log.topics[2]?.toLowerCase();
             const normalizedRoot = (rootHash as string).startsWith("0x") ? (rootHash as string).toLowerCase() : `0x${(rootHash as string).toLowerCase()}`;
             
-            logger.debug({ logRoot, normalizedRoot }, "0G Storage: comparing root hashes");
             if (logRoot === normalizedRoot) {
-              // seq is the first uint256 in data (32 bytes)
-              const seqHex = ethers.dataSlice(log.data, 0, 32);
-              sequenceId = ethers.toBigInt(seqHex).toString();
-              logger.info({ sequenceId, txHash }, "0G Storage: successfully extracted sequenceId from log");
-              break;
+              // Try to get sequence from data (first 32 bytes)
+              try {
+                if (log.data.length >= 34) { // 0x + 32 bytes hex
+                  const seqHex = ethers.dataSlice(log.data, 0, 32);
+                  sequenceId = ethers.toBigInt(seqHex).toString();
+                } else if (log.topics.length >= 4) {
+                  // Fallback: maybe seq is indexed?
+                  sequenceId = ethers.toBigInt(log.topics[3]).toString();
+                }
+              } catch (e) {
+                logger.error({ e }, "0G Storage: error parsing sequenceId from log");
+              }
+              
+              if (sequenceId && sequenceId !== "0") {
+                logger.info({ sequenceId, txHash }, "0G Storage: successfully extracted sequenceId");
+                break;
+              }
             }
           }
         }
@@ -136,7 +151,7 @@ async function uploadToOgStorage(
           txHash, 
           rootHash,
           logsCount: receipt?.logs.length,
-          allEventSigs: receipt?.logs.map(l => l.topics[0]) 
+          allSigs: receipt?.logs.map(l => l.topics[0])
         }, "0G Storage: could not find NewFile event for rootHash in receipt");
       }
     } catch (err) {
