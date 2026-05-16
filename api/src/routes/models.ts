@@ -286,7 +286,7 @@ export async function modelRoutes(app: FastifyInstance): Promise<void> {
     };
 
     // Step 5: Upload to 0G Storage
-    const ogStorageCid = await uploadModel(targetAddress, mlResponse.vector, modelMetadata);
+    const { rootHash: ogStorageCid, txHash: ogStorageTx, sequenceId: ogStorageSeq } = await uploadModel(targetAddress, mlResponse.vector, modelMetadata);
 
     // Step 6: Save as snapshot model (modelType="snapshot", no isCurrent)
     const [newSnapshot] = await db
@@ -298,6 +298,8 @@ export async function modelRoutes(app: FastifyInstance): Promise<void> {
         modelType: "snapshot",
         version: 1,
         ogStorageCid,
+        ogStorageTx,
+        ogStorageSeq,
         performanceScore: mlResponse.performance_score.toFixed(2),
         vectorDimensions: 512,
         totalActionsTrained: actions.length,
@@ -306,7 +308,7 @@ export async function modelRoutes(app: FastifyInstance): Promise<void> {
       })
       .returning();
 
-    logger.info({ userId, targetAddress, ogStorageCid, totalActions }, "Snapshot analysis complete");
+    logger.info({ userId, targetAddress, ogStorageCid, ogStorageSeq, totalActions }, "Snapshot analysis complete");
 
     return reply.status(201).send({
       message: "Snapshot analysis complete.",
