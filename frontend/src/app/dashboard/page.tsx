@@ -521,10 +521,10 @@ export default function DashboardPage() {
                 <a
                   href={
                     currentModel.ogStorageSeq 
-                      ? `https://storagescan-galileo.0g.ai/file/${currentModel.ogStorageSeq}`
+                      ? `https://storagescan-galileo.0g.ai/submission/${currentModel.ogStorageSeq}`
                       : currentModel.ogStorageTx
                         ? `https://storagescan-galileo.0g.ai/tx/${currentModel.ogStorageTx}`
-                        : `https://storagescan-galileo.0g.ai/file/${currentModel.ogStorageCid}`
+                        : `https://storagescan-galileo.0g.ai/submission/${currentModel.ogStorageCid}`
                   }
                   target="_blank"
                   rel="noopener noreferrer"
