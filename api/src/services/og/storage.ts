@@ -110,29 +110,47 @@ async function uploadToOgStorage(
       if (receipt) {
         // NewFile(address indexed sender, bytes32 indexed root, uint256 seq, uint256 size)
         // Event signature hash: 0x1801f92e21c33f20a6f88d752495bb38ec291e0d4734316d3e35a90940562e9a
+        // Support both old "NewFile" and new "Submit" event signatures
         const newFileEventSig = "0x2d799b6aa56f22ac0f834d49b6bb977eaf4fa4d57576d51d88c96f0131186570";
+        const submitEventSig = "0x167ce04d2aa1981994d3a31695da0d785373335b1078cec239a1a3a2c7675555";
         
         for (const log of receipt.logs) {
-          if (log.topics[0] === newFileEventSig) {
+          const isNewFile = log.topics[0] === newFileEventSig;
+          const isSubmit = log.topics[0] === submitEventSig;
+          
+          if (isNewFile || isSubmit) {
+            // In NewFile, root is Topic 2. In Submit, identity (root) is also Topic 2.
             const logRoot = log.topics[2]?.toLowerCase();
             const normalizedRoot = (rootHash as string).startsWith("0x") ? (rootHash as string).toLowerCase() : `0x${(rootHash as string).toLowerCase()}`;
             
             if (logRoot === normalizedRoot) {
-              // Try to get sequence from data (first 32 bytes)
               try {
-                if (log.data.length >= 34) { // 0x + 32 bytes hex
-                  const seqHex = ethers.dataSlice(log.data, 0, 32);
-                  sequenceId = ethers.toBigInt(seqHex).toString();
-                } else if (log.topics.length >= 4) {
-                  // Fallback: maybe seq is indexed?
-                  sequenceId = ethers.toBigInt(log.topics[3]).toString();
+                if (isNewFile) {
+                  // NewFile(address, bytes32, uint256 seq, ...) -> seq is first in data
+                  if (log.data.length >= 34) {
+                    const seqHex = ethers.dataSlice(log.data, 0, 32);
+                    sequenceId = ethers.toBigInt(seqHex).toString();
+                  }
+                } else {
+                  // Submit(address, bytes32, uint256 submissionIndex, ...) -> submissionIndex is first in data
+                  if (log.data.length >= 34) {
+                    const seqHex = ethers.dataSlice(log.data, 0, 32);
+                    sequenceId = ethers.toBigInt(seqHex).toString();
+                  }
+                }
+                
+                // Fallback: if data is empty, check topics[3] just in case
+                if (!sequenceId || sequenceId === "0") {
+                  if (log.topics.length >= 4) {
+                    sequenceId = ethers.toBigInt(log.topics[3]).toString();
+                  }
                 }
               } catch (e) {
-                logger.error({ e }, "0G Storage: error parsing sequenceId from log");
+                logger.error({ e, sig: log.topics[0] }, "0G Storage: error parsing sequenceId from log");
               }
               
               if (sequenceId && sequenceId !== "0") {
-                logger.info({ sequenceId, txHash }, "0G Storage: successfully extracted sequenceId");
+                logger.info({ sequenceId, txHash, sig: log.topics[0] }, "0G Storage: successfully extracted sequenceId");
                 break;
               }
             }
