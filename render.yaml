@@ -1,15 +1,15 @@
 services:
   - type: web
-    name: mirrormind-api
+    name: ogspace-1
     env: node
-    buildCommand: npm install && npm run build --workspace api
-    startCommand: npm run start --workspace api
+    buildCommand: cd api && npm install && npm run build
+    startCommand: cd api && node dist/server.js
     envVars:
       - key: NODE_ENV
         value: production
 
   - type: web
-    name: mirrormind-ml
+    name: ogspace
     env: python
     buildCommand: pip install -r ml/requirements.txt
     startCommand: uvicorn ml.main:app --host 0.0.0.0 --port 10000
