@@ -262,11 +262,21 @@ async def get_model_info(wallet_address: str) -> ModelInfoResponse:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    
+    port = int(os.getenv("PORT", "10000"))
+    host = os.getenv("HOST", "0.0.0.0")
+    
+    logger.info("MirrorMind ML: starting server on %s:%d", host, port)
+    
     uvicorn.run(
         "ml.main:app",
-        host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", "8000")),
+        host=host,
+        port=port,
         reload=os.getenv("RELOAD", "false").lower() == "true",
         log_level="info",
     )
