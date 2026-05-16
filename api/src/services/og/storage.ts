@@ -119,14 +119,17 @@ async function uploadToOgStorage(
           const isSubmit = log.topics[0] === submitEventSig;
           
           if (isNewFile || isSubmit) {
-            const normalizedRoot = (rootHash as string).startsWith("0x") ? (rootHash as string).toLowerCase().slice(2) : (rootHash as string).toLowerCase();
+            const normalizedRoot = (rootHash as string).toLowerCase();
             const logData = log.data.toLowerCase();
             
             // For NewFile, root is Topic 2. For Submit, root is buried in the encoded SubmissionData in log.data.
-            // A robust way to check is to see if our root exists in the topics OR the data.
-            const isMatch = log.topics[2]?.toLowerCase().includes(normalizedRoot) || logData.includes(normalizedRoot);
+            // We'll check if our root exists in the topics OR the data.
+            const isMatch = log.topics[2]?.toLowerCase() === normalizedRoot || logData.includes(normalizedRoot.slice(2));
             
-            if (isMatch) {
+            // If there's only one log in the receipt and it matches the signature, we can be fairly confident it's ours
+            const isOnlyLog = receipt.logs.length === 1;
+            
+            if (isMatch || isOnlyLog) {
               try {
                 // In both NewFile and Submit (latest), the first 32 bytes of data is the sequence/index
                 if (log.data.length >= 34) {
@@ -145,9 +148,11 @@ async function uploadToOgStorage(
               }
               
               if (sequenceId && sequenceId !== "0") {
-                logger.info({ sequenceId, txHash, sig: log.topics[0] }, "0G Storage: successfully extracted sequenceId");
+                logger.info({ sequenceId, txHash, isMatch, isOnlyLog, sig: log.topics[0] }, "0G Storage: successfully extracted sequenceId");
                 break;
               }
+            } else {
+              logger.warn({ txHash, logData: logData.slice(0, 100), normalizedRoot }, "0G Storage: found event but root hash did not match");
             }
           }
         }
