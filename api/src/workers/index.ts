@@ -4,7 +4,6 @@
  * Workers started here:
  *   IndexingWorker      — concurrency 5
  *   ModelTrainingWorker — concurrency 2
- *   AgentExecuteWorker  — concurrency 10
  *   AgentSuggestWorker  — concurrency 10
  *   ArchiveWorker       — concurrency 1
  *
@@ -13,7 +12,7 @@
 
 import { createIndexingWorker } from "./indexWorker.js";
 import { createModelTrainingWorker } from "./trainWorker.js";
-import { createAgentExecuteWorker, createAgentSuggestWorker } from "./agentWorker.js";
+import { createAgentSuggestWorker } from "./agentWorker.js";
 import { createArchiveWorker, scheduleWeeklyArchive } from "./archiveWorker.js";
 import { logger } from "../lib/logger.js";
 import type { BroadcastFn } from "./indexWorker.js";
@@ -35,9 +34,6 @@ export function startAllWorkers(broadcast: BroadcastFn): void {
   const trainingWorker = createModelTrainingWorker(broadcast);
   logger.info("ModelTrainingWorker started (concurrency 2)");
 
-  // Agent execute worker (concurrency 10)
-  const agentExecuteWorker = createAgentExecuteWorker(broadcast);
-  logger.info("AgentExecuteWorker started (concurrency 10)");
 
   // Agent suggest worker (concurrency 10)
   const agentSuggestWorker = createAgentSuggestWorker(broadcast);
@@ -58,7 +54,6 @@ export function startAllWorkers(broadcast: BroadcastFn): void {
     await Promise.allSettled([
       indexingWorker.close(),
       trainingWorker.close(),
-      agentExecuteWorker.close(),
       agentSuggestWorker.close(),
       archiveWorker.close(),
     ]);
