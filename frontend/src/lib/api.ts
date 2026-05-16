@@ -50,7 +50,18 @@ export const api = {
       request<{ jobId: string }>(`/indexing/trigger/${address}`, { method: "POST", jwt }),
   },
   models: {
-    current: (jwt: string) => request<{ id: string; version: number; ogStorageCid: string; performanceScore: number | null; totalActionsTrained: number | null; vectorDimensions: number | null; modelMetadata: unknown; dimensionScores?: unknown }>("/models/current", { jwt }),
+    current: (jwt: string) => request<{ 
+      id: string; 
+      version: number; 
+      ogStorageCid: string; 
+      ogStorageTx?: string;
+      ogStorageSeq?: string;
+      performanceScore: number | null; 
+      totalActionsTrained: number | null; 
+      vectorDimensions: number | null; 
+      modelMetadata: unknown; 
+      dimensionScores?: unknown 
+    }>("/models/current", { jwt }),
     train: (jwt: string) => request<{ jobId: string; actionCount: number }>("/models/train", { method: "POST", jwt }),
     analyze: (jwt: string, targetAddress: string) => request<{ message: string; cached: boolean; snapshot: unknown }>("/models/analyze", { method: "POST", jwt, body: JSON.stringify({ targetAddress }) }),
     snapshots: (jwt: string) => request<{ snapshots: unknown[]; total: number }>("/models/snapshots", { jwt }),
