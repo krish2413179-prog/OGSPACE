@@ -222,7 +222,19 @@ export function createAgentSuggestWorker(broadcast: BroadcastFn): Worker<AgentJo
 
 
 export async function scheduleSuggestAgent(agentId: string, ownerAddress: string): Promise<void> {
-  await agentSuggestQueue.add("agent:suggest", { agentId, ownerAddress, mode: "SUGGEST" }, { jobId: `suggest:${agentId}`, repeat: { every: SUGGEST_INTERVAL_MS } });
+  // 1. Add repeatable job (every 15 mins)
+  await agentSuggestQueue.add(
+    "agent:suggest", 
+    { agentId, ownerAddress, mode: "SUGGEST" }, 
+    { jobId: `suggest:${agentId}`, repeat: { every: SUGGEST_INTERVAL_MS } }
+  );
+  
+  // 2. Add immediate one-off job to provide instant feedback
+  await agentSuggestQueue.add(
+    "agent:suggest:immediate", 
+    { agentId, ownerAddress, mode: "SUGGEST" },
+    { jobId: `suggest:immediate:${agentId}:${Date.now()}` }
+  );
 }
 
 export async function unscheduleAgent(agentId: string): Promise<void> {

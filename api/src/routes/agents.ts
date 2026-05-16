@@ -166,7 +166,11 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     const body = request.body as { modelId: string | null } | undefined;
     const { modelId } = body ?? {};
  
-    const [agent] = await db.select({ id: agentDeployments.id }).from(agentDeployments).where(and(eq(agentDeployments.ownerAddress, walletAddress.toLowerCase()), eq(agentDeployments.isActive, true))).limit(1);
+    const [agent] = await db
+      .select({ id: agentDeployments.id, mode: agentDeployments.mode })
+      .from(agentDeployments)
+      .where(and(eq(agentDeployments.ownerAddress, walletAddress.toLowerCase()), eq(agentDeployments.isActive, true)))
+      .limit(1);
     if (!agent) return reply.status(404).send({ error: "Not Found", message: "No active agent found." });
  
     if (modelId) {
@@ -178,7 +182,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     await db.update(agentDeployments).set({ activeModelId: modelId }).where(eq(agentDeployments.id, agent.id));
     
     // Trigger an immediate decision cycle to reflect the new behavior
-    await enqueueDecisionLoop(agent.id, walletAddress, "OBSERVE"); // OBSERVE just resets the loop, it will pick up the real mode in the processor
+    await enqueueDecisionLoop(agent.id, walletAddress, agent.mode as AgentMode);
  
     return reply.status(200).send({ message: "Agent behavioral model updated.", activeModelId: modelId });
   });
