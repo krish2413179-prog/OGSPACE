@@ -110,7 +110,7 @@ async function uploadToOgStorage(
       if (receipt) {
         // NewFile(address indexed sender, bytes32 indexed root, uint256 seq, uint256 size)
         // Event signature hash: 0x1801f92e21c33f20a6f88d752495bb38ec291e0d4734316d3e35a90940562e9a
-        const newFileEventSig = "0x1801f92e21c33f20a6f88d752495bb38ec291e0d4734316d3e35a90940562e9a";
+        const newFileEventSig = "0x2d799b6aa56f22ac0f834d49b6bb977eaf4fa4d57576d51d88c96f0131186570";
         
         for (const log of receipt.logs) {
           logger.debug({ topics: log.topics, data: log.data }, "0G Storage: checking log for sequenceId");
