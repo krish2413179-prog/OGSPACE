@@ -14,7 +14,6 @@ import { redis, bullmqConnection } from "../plugins/redis.js";
 import { agentDeployments, agentActions, behaviorModels } from "../db/schema.js";
 import { evaluate as guardianEvaluate } from "../services/agent/guardian.js";
 import { runInference } from "../services/agent/ogCompute.js";
-import { uploadMetadata } from "../services/og/storage.js";
 import { logger } from "../lib/logger.js";
 import type { BroadcastFn } from "./indexWorker.js";
 import type { AgentMode } from "../types/index.js";

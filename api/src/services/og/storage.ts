@@ -54,7 +54,7 @@ async function withUploadRetry<T>(
 async function uploadToOgStorage(
   data: Buffer,
   label: string
-): Promise<string | null> {
+): Promise<{ rootHash: string; txHash: string; sequenceId: string | null } | null> {
   const privateKey = process.env.BACKEND_PRIVATE_KEY;
   const indexerRpc = process.env.OG_STORAGE_TURBO_RPC ?? process.env.OG_STORAGE_RPC;
   const evmRpc = process.env.OG_RPC_URL;
@@ -96,9 +96,36 @@ async function uploadToOgStorage(
       throw new Error(`0G Storage upload failed: ${uploadErr}`);
     }
 
-    logger.info({ tx, rootHash, label }, "0G Storage: upload successful");
-    // Return the root hash as the CID — this is a real verifiable hash on 0G
-    return rootHash;
+    logger.info({ tx, rootHash, label }, "0G Storage: upload successful, waiting for confirmation...");
+
+    // Wait for receipt to get the sequence ID
+    let sequenceId: string | null = null;
+    try {
+      const receipt = await provider.waitForTransaction(tx);
+      if (receipt) {
+        // The Flow contract emits NewFile(sender, root, seq, size)
+        // We look for an event where the second topic is the rootHash
+        for (const log of receipt.logs) {
+          if (log.topics.includes(rootHash)) {
+            // Usually the sequence is the 3rd parameter (data or topic)
+            // For NewFile, it's often in the data if not indexed
+            // But let's try to parse it safely. 
+            // In 0G, it's typically log.data or one of the topics.
+            // A quick way is to check the 3rd topic or the start of the data.
+            try {
+              // Extract sequence from log data (uint256)
+              const seq = ethers.toQuantity(ethers.dataSlice(log.data, 0, 32));
+              sequenceId = ethers.toNumber(seq).toString();
+              break;
+            } catch { /* ignore */ }
+          }
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, tx }, "0G Storage: failed to wait for receipt or parse sequenceId");
+    }
+
+    return { rootHash, txHash: tx, sequenceId };
   } catch (err) {
     logger.error({ err, label }, "0G Storage: upload error");
     throw err;
@@ -121,7 +148,7 @@ export async function uploadModel(
   walletAddress: string,
   modelBuffer: Buffer,
   metadata: Record<string, unknown>
-): Promise<string> {
+): Promise<{ rootHash: string; txHash: string; sequenceId: string | null }> {
   const version = (metadata.version as number | undefined) ?? 1;
   const label = `uploadModel(${walletAddress}:v${version})`;
 
@@ -138,14 +165,16 @@ export async function uploadModel(
   );
 
   // Try real 0G Storage upload (throws on failure)
-  const cid = await withUploadRetry(
+  const result = await withUploadRetry(
     () => uploadToOgStorage(fullPayload, label),
     label
   );
 
-  if (!cid) {
-    throw new Error("0G Storage: Upload returned empty CID");
+  if (!result) {
+    throw new Error("0G Storage: Upload returned empty result");
   }
+
+  const { rootHash: cid, txHash, sequenceId } = result;
 
   // Always cache in Redis for fast lookups by the Agent & API
   await withUploadRetry(async () => {
@@ -178,8 +207,8 @@ export async function uploadModel(
     await pipeline.exec();
   }, `redis-cache:${label}`);
 
-  logger.info({ walletAddress, version, cid }, "0G Storage: model uploaded");
-  return cid;
+  logger.info({ walletAddress, version, cid, sequenceId }, "0G Storage: model uploaded");
+  return { rootHash: cid, txHash, sequenceId };
 }
 
 /**
@@ -192,15 +221,16 @@ export async function uploadModel(
 export async function uploadMetadata(
   label: string,
   metadata: Record<string, unknown>
-): Promise<string> {
+): Promise<{ rootHash: string; txHash: string; sequenceId: string | null }> {
   const payload = Buffer.from(JSON.stringify(metadata), "utf8");
-  const cid = await withUploadRetry(() => uploadToOgStorage(payload, label), label);
-  if (!cid) {
-    throw new Error("0G Storage: Upload returned empty CID for metadata");
+  const result = await withUploadRetry(() => uploadToOgStorage(payload, label), label);
+  if (!result) {
+    throw new Error("0G Storage: Upload returned empty result for metadata");
   }
+  const { rootHash: cid, txHash, sequenceId } = result;
   await redis.set(`og:meta:${cid}`, JSON.stringify(metadata), "EX", STORAGE_TTL_SECONDS);
-  logger.info({ label, cid }, "0G Storage: metadata uploaded");
-  return cid;
+  logger.info({ label, cid, sequenceId }, "0G Storage: metadata uploaded");
+  return { rootHash: cid, txHash, sequenceId };
 }
 
 /**

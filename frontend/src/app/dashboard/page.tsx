@@ -290,6 +290,8 @@ export default function DashboardPage() {
                                   id: m.id,
                                   version: m.version,
                                   ogStorageCid: m.ogStorageCid,
+                                  ogStorageTx: m.ogStorageTx,
+                                  ogStorageSeq: m.ogStorageSeq,
                                   performanceScore: m.performanceScore,
                                   totalActionsTrained: m.totalActionsTrained,
                                   vectorDimensions: m.vectorDimensions,
@@ -362,6 +364,8 @@ export default function DashboardPage() {
                                 id: m.id,
                                 version: m.version,
                                 ogStorageCid: m.ogStorageCid,
+                                ogStorageTx: m.ogStorageTx,
+                                ogStorageSeq: m.ogStorageSeq,
                                 performanceScore: m.performanceScore,
                                 totalActionsTrained: m.totalActionsTrained,
                                 vectorDimensions: m.vectorDimensions,
@@ -515,7 +519,13 @@ export default function DashboardPage() {
                   {currentModel.ogStorageCid}
                 </div>
                 <a
-                  href={`https://storagescan-galileo.0g.ai/file/${currentModel.ogStorageCid}`}
+                  href={
+                    currentModel.ogStorageSeq 
+                      ? `https://storagescan-galileo.0g.ai/file/${currentModel.ogStorageSeq}`
+                      : currentModel.ogStorageTx
+                        ? `https://storagescan-galileo.0g.ai/tx/${currentModel.ogStorageTx}`
+                        : `https://storagescan-galileo.0g.ai/file/${currentModel.ogStorageCid}`
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-primary"

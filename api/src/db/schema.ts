@@ -68,6 +68,7 @@ export const behaviorModels = pgTable(
     version: integer("version").notNull(),
     ogStorageCid: varchar("og_storage_cid", { length: 200 }).notNull(),
     ogStorageTx: varchar("og_storage_tx", { length: 66 }),
+    ogStorageSeq: varchar("og_storage_seq", { length: 20 }),
     totalActionsTrained: integer("total_actions_trained"),
     performanceScore: decimal("performance_score", {
       precision: 6,

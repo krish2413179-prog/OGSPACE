@@ -35,6 +35,8 @@ function formatModel(model: typeof behaviorModels.$inferSelect) {
     modelType: model.modelType,
     version: model.version,
     ogStorageCid: model.ogStorageCid,
+    ogStorageTx: model.ogStorageTx,
+    ogStorageSeq: model.ogStorageSeq,
     performanceScore: model.performanceScore ? parseFloat(model.performanceScore) : null,
     vectorDimensions: model.vectorDimensions,
     totalActionsTrained: model.totalActionsTrained,

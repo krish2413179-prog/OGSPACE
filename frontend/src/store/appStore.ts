@@ -32,6 +32,8 @@ export interface CurrentModel {
   id: string;
   version: number;
   ogStorageCid: string;
+  ogStorageTx?: string;
+  ogStorageSeq?: string;
   performanceScore: number | null;
   totalActionsTrained: number | null;
   vectorDimensions: number | null;

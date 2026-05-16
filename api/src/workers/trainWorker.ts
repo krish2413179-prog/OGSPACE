@@ -148,7 +148,7 @@ export async function processTrainModelJob(
     trainedAt: new Date().toISOString(),
   };
 
-  const ogStorageCid = await uploadModel(
+  const { rootHash: ogStorageCid, txHash: ogStorageTx, sequenceId: ogStorageSeq } = await uploadModel(
     walletAddress,
     mlResponse.vector,
     modelMetadata
@@ -180,6 +180,8 @@ export async function processTrainModelJob(
       walletAddress,
       version: nextVersion,
       ogStorageCid,
+      ogStorageTx,
+      ogStorageSeq,
       performanceScore: mlResponse.performance_score.toFixed(2),
       vectorDimensions: 512,
       totalActionsTrained: actions.length,

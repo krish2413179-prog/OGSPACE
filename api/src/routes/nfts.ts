@@ -70,7 +70,7 @@ export async function nftRoutes(app: FastifyInstance): Promise<void> {
     };
 
     // Upload metadata to 0G Storage
-    const ogStorageCid = await uploadMetadata(`soul:${walletAddress}`, nftMetadata);
+    const { rootHash: ogStorageCid } = await uploadMetadata(`soul:${walletAddress}`, nftMetadata);
 
     logger.info({ walletAddress, ogStorageCid, modelVersion: latestModel.version }, "NFT mint prepared");
 
