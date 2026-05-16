@@ -120,6 +120,7 @@ export const agentDeployments = pgTable("agent_deployments", {
   soulTokenId: bigint("soul_token_id", { mode: "number" }),
   soulSourceAddress: varchar("soul_source_address", { length: 42 }),
   mode: varchar("mode", { length: 20 }).notNull().default("OBSERVE"),
+  activeModelId: uuid("active_model_id").references(() => behaviorModels.id),
   isActive: boolean("is_active").default(true),
   actionsTaken: integer("actions_taken").default(0),
   lastActionAt: timestamp("last_action_at", { withTimezone: true }),

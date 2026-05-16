@@ -6,7 +6,7 @@
  * Requirements: 16.6
  */
 
-type AgentMode = "OBSERVE" | "SUGGEST" | "EXECUTE";
+type AgentMode = "OBSERVE" | "SUGGEST";
 
 interface AgentModeLabelProps {
   mode: AgentMode;

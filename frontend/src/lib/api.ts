@@ -59,6 +59,7 @@ export const api = {
     current: (jwt: string) => request<{ id: string; ogAgentId: string; mode: string; isActive: boolean; actionsTaken: number; lastActionAt: string | null; deployedAt: string | null }>("/agents/current", { jwt }),
     deploy: (jwt: string, mode?: string) => request<{ id: string; ogAgentId: string; mode: string }>("/agents/deploy", { method: "POST", jwt, body: JSON.stringify({ mode: mode ?? "OBSERVE" }) }),
     updateMode: (jwt: string, mode: string) => request<{ mode: string }>("/agents/current/mode", { method: "PATCH", jwt, body: JSON.stringify({ mode }) }),
+    updateModel: (jwt: string, modelId: string | null) => request<{ message: string }>("/agents/current/model", { method: "PATCH", jwt, body: JSON.stringify({ modelId }) }),
     deactivate: (jwt: string) => request<{ message: string }>("/agents/current", { method: "DELETE", jwt }),
     actions: (jwt: string, page = 1, limit = 20) => request<{ agentId: string; actions: unknown[]; pagination: unknown }>(`/agents/current/actions?page=${page}&limit=${limit}`, { jwt }),
   },

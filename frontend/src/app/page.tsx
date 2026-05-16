@@ -39,7 +39,7 @@ export default function LandingPage() {
               <div style={{ display: "inline-block", padding: "6px 16px", borderRadius: "30px", border: "1px solid var(--color-border)", background: "var(--color-glass-bg)", marginBottom: "24px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.1em", color: "var(--color-accent-tertiary)", textTransform: "uppercase" }}>
                 Powered by 0G Network
               </div>
-              <h1 className="gradient-text" style={{ fontSize: "clamp(48px, 8vw, 84px)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1, marginBottom: "24px" }}>
+              <h1 className="gradient-text" style={{ fontFamily: "var(--font-headline)", fontSize: "clamp(48px, 8vw, 84px)", fontWeight: 400, letterSpacing: "0.02em", lineHeight: 1.1, marginBottom: "24px" }}>
                 MIRRORMIND
               </h1>
               <p style={{ color: "var(--color-secondary)", fontSize: "clamp(16px, 2vw, 20px)", lineHeight: 1.6, maxWidth: "600px", margin: "0 auto" }}>
@@ -53,7 +53,7 @@ export default function LandingPage() {
               <div className="glass-panel" style={{ maxWidth: "400px", margin: "0 auto", padding: "40px 32px", display: "flex", flexDirection: "column", gap: "24px", alignItems: "center", position: "relative" }}>
                 <div style={{ position: "absolute", inset: 0, borderRadius: "inherit", padding: "2px", background: "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0))", WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)", WebkitMaskComposite: "xor", pointerEvents: "none" }} />
                 
-                <h2 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "8px" }}>Enter the Swarm</h2>
+                <h2 style={{ fontFamily: "var(--font-headline)", fontSize: "18px", fontWeight: 400, marginBottom: "8px" }}>Enter the Swarm</h2>
                 
                 <ConnectButton />
 
@@ -85,7 +85,7 @@ export default function LandingPage() {
                 ].map((feat, i) => (
                   <div key={feat.title} className="glass-panel" style={{ padding: "24px", transition: "transform 0.3s ease, box-shadow 0.3s ease" }} onMouseEnter={(e) => e.currentTarget.style.transform = "translateY(-4px)"} onMouseLeave={(e) => e.currentTarget.style.transform = "translateY(0)"}>
                     <div style={{ fontSize: "32px", marginBottom: "16px" }}>{feat.icon}</div>
-                    <h3 style={{ fontSize: "14px", fontWeight: 700, color: "var(--color-fg)", marginBottom: "8px", letterSpacing: "0.1em" }}>{feat.title}</h3>
+                    <h3 style={{ fontFamily: "var(--font-headline)", fontSize: "15px", fontWeight: 400, color: "var(--color-fg)", marginBottom: "8px", letterSpacing: "0.06em" }}>{feat.title}</h3>
                     <p style={{ fontSize: "13px", color: "var(--color-secondary)", lineHeight: 1.6 }}>{feat.desc}</p>
                   </div>
                 ))}

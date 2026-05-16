@@ -13,9 +13,10 @@ interface HorizontalBarProps {
   value: number; // 0–100
   showPercent?: boolean;
   className?: string;
+  color?: string;
 }
 
-export function HorizontalBar({ label, value, showPercent = true, className = "" }: HorizontalBarProps) {
+export function HorizontalBar({ label, value, showPercent = true, className = "", color }: HorizontalBarProps) {
   const clamped = Math.min(100, Math.max(0, value));
 
   return (
@@ -39,7 +40,7 @@ export function HorizontalBar({ label, value, showPercent = true, className = ""
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           style={{ 
             height: "100%", 
-            background: "linear-gradient(90deg, var(--color-accent-primary), var(--color-accent-tertiary))", 
+            background: color || "linear-gradient(90deg, var(--color-accent-primary), var(--color-accent-tertiary))", 
             borderRadius: "var(--radius-sm)",
           }}
         />

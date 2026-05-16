@@ -10,7 +10,7 @@ export type ActionType =
   | "OTHER";
 
 /** Agent operating modes */
-export type AgentMode = "OBSERVE" | "SUGGEST" | "EXECUTE";
+export type AgentMode = "OBSERVE" | "SUGGEST";
 
 /** Agent lifecycle status */
 export type AgentStatus = "ACTIVE" | "INACTIVE";

@@ -176,7 +176,7 @@ export default function MintPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" }}>
           <div>
             <Link href="/dashboard" style={{ fontSize: "11px", color: "var(--color-secondary)", textDecoration: "none" }}>← DASHBOARD</Link>
-            <h1 style={{ fontSize: "18px", fontWeight: 700, marginTop: "8px" }}>MINT SOUL NFT</h1>
+            <h1 style={{ fontFamily: "var(--font-headline)", fontSize: "20px", fontWeight: 400, marginTop: "8px", letterSpacing: "0.04em" }}>MINT SOUL NFT</h1>
           </div>
           {/* Step indicator */}
           <div style={{ display: "flex", gap: "8px" }}>

@@ -17,7 +17,7 @@ import { persist } from "zustand/middleware";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type IndexingStatus = "PENDING" | "IN_PROGRESS" | "COMPLETE" | "FAILED";
-export type AgentMode = "OBSERVE" | "SUGGEST" | "EXECUTE";
+export type AgentMode = "OBSERVE" | "SUGGEST";
 
 export interface DimensionScores {
   riskProfile: number;
@@ -44,6 +44,7 @@ export interface CurrentAgent {
   id: string;
   ogAgentId: string;
   mode: AgentMode;
+  activeModelId?: string | null;
   isActive: boolean;
   actionsTaken: number;
   lastActionAt?: string;
@@ -120,6 +121,10 @@ interface AppState {
   // Marketplace
   listings: MarketplaceListing[];
   setListings: (listings: MarketplaceListing[]) => void;
+
+  // Analysis/Switch Context
+  selectedWalletAddress: string | null;
+  setSelectedWalletAddress: (address: string | null) => void;
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -130,8 +135,12 @@ export const useAppStore = create<AppState>()(
       // Auth
       walletAddress: null,
       jwt: null,
-      setAuth: (walletAddress, jwt) => set({ walletAddress, jwt }),
-      clearAuth: () => set({ walletAddress: null, jwt: null, currentModel: null, currentAgent: null, agentActions: [], pendingSuggestion: null, indexingStatus: "PENDING", indexingProgress: 0, totalActions: 0 }),
+      setAuth: (walletAddress, jwt) => set({ walletAddress, jwt, selectedWalletAddress: walletAddress }),
+      clearAuth: () => set({ walletAddress: null, jwt: null, currentModel: null, currentAgent: null, agentActions: [], pendingSuggestion: null, indexingStatus: "PENDING", indexingProgress: 0, totalActions: 0, selectedWalletAddress: null }),
+
+      // Analysis
+      selectedWalletAddress: null,
+      setSelectedWalletAddress: (address) => set({ selectedWalletAddress: address }),
 
       // Indexing
       indexingStatus: "PENDING",

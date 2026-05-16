@@ -59,7 +59,7 @@ export default function MarketplacePage() {
             <Link href="/dashboard" style={{ fontSize: "11px", color: "var(--color-secondary)", textDecoration: "none" }}>
               ← Dashboard
             </Link>
-            <h1 style={{ fontSize: "22px", fontWeight: 700, marginTop: "8px", color: "var(--color-fg)" }}>
+            <h1 style={{ fontFamily: "var(--font-headline)", fontSize: "24px", fontWeight: 400, marginTop: "8px", color: "var(--color-fg)", letterSpacing: "0.02em" }}>
               Soul Marketplace
             </h1>
             <p style={{ fontSize: "13px", color: "var(--color-secondary)", marginTop: "4px" }}>
@@ -142,7 +142,7 @@ export default function MarketplacePage() {
         {!isLoading && sortedItems.length === 0 && (
           <SharpCard style={{ textAlign: "center", padding: "60px 40px" }}>
             <div style={{ fontSize: "48px", marginBottom: "16px" }}>👻</div>
-            <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "8px", color: "var(--color-fg)" }}>
+            <h3 style={{ fontFamily: "var(--font-headline)", fontSize: "17px", fontWeight: 400, marginBottom: "8px", color: "var(--color-fg)", letterSpacing: "0.02em" }}>
               {viewMode === "listed" ? "No Active Listings Yet" : "No Minted Souls Found"}
             </h3>
             <p style={{ fontSize: "13px", color: "var(--color-secondary)", maxWidth: "400px", margin: "0 auto 24px", lineHeight: 1.6 }}>

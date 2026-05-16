@@ -13,7 +13,7 @@ import { api } from "@/lib/api";
 import { AgentModeLabel, StatRow, SharpCard, FadeIn, SlideUp } from "@/components/ui";
 import type { AgentMode } from "@/store/appStore";
 
-const MODES: AgentMode[] = ["OBSERVE", "SUGGEST", "EXECUTE"];
+const MODES: AgentMode[] = ["OBSERVE", "SUGGEST"];
 
 export default function AgentPage() {
   const router = useRouter();
@@ -45,6 +45,7 @@ export default function AgentPage() {
           id: agentRes.id,
           ogAgentId: agentRes.ogAgentId,
           mode: agentRes.mode as AgentMode,
+          activeModelId: (agentRes as any).activeModelId,
           isActive: agentRes.isActive,
           actionsTaken: agentRes.actionsTaken,
           lastActionAt: agentRes.lastActionAt ?? undefined,
@@ -112,7 +113,7 @@ export default function AgentPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" }}>
           <div>
             <Link href="/dashboard" style={{ fontSize: "11px", color: "var(--color-secondary)", textDecoration: "none" }}>← DASHBOARD</Link>
-            <h1 style={{ fontSize: "18px", fontWeight: 700, marginTop: "8px" }}>AGENT CONTROL</h1>
+            <h1 style={{ fontFamily: "var(--font-headline)", fontSize: "20px", fontWeight: 400, marginTop: "8px", letterSpacing: "0.04em" }}>AGENT CONTROL</h1>
           </div>
           {currentAgent && <AgentModeLabel mode={currentAgent.mode} />}
         </div>
@@ -129,15 +130,18 @@ export default function AgentPage() {
               {currentModel && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                   <p style={{ fontSize: "11px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Select starting mode:</p>
-                  <div style={{ display: "flex", gap: "12px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     {MODES.map((mode) => (
                       <button
                         key={mode}
                         onClick={() => handleDeploy(mode)}
                         disabled={isDeploying}
-                        style={{ flex: 1, padding: "12px 8px", background: mode === "OBSERVE" ? "var(--color-fg)" : "transparent", color: mode === "OBSERVE" ? "var(--color-bg)" : "var(--color-fg)", border: "1px solid var(--color-fg)", fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", cursor: "pointer", opacity: isDeploying ? 0.6 : 1 }}
+                        style={{ padding: "16px", background: "transparent", color: "var(--color-fg)", border: "1px solid var(--color-fg)", textAlign: "left", cursor: "pointer" }}
                       >
-                        {mode}
+                        <div style={{ fontWeight: 700, fontSize: "12px", marginBottom: "4px" }}>{mode}</div>
+                        <div style={{ fontSize: "11px", color: "var(--color-secondary)", textTransform: "none", fontWeight: 400 }}>
+                          {mode === "OBSERVE" ? "Passive monitoring for behavioral retraining. No suggestions." : "Active market scanning for trade suggestions based on your model."}
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -155,6 +159,19 @@ export default function AgentPage() {
               <SharpCard style={{ marginBottom: "24px" }}>
                 <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Agent Status</p>
                 <StatRow label="Agent ID" value={`${currentAgent.ogAgentId.slice(0, 20)}…`} />
+                <StatRow label="Context" value={
+                  <span style={{ 
+                    fontSize: "9px", 
+                    padding: "2px 6px", 
+                    borderRadius: "4px", 
+                    background: !currentAgent.activeModelId ? "rgba(15, 82, 186, 0.1)" : "rgba(147, 51, 234, 0.1)",
+                    color: !currentAgent.activeModelId ? "var(--color-accent-primary)" : "#9333ea",
+                    fontWeight: 700,
+                    border: "1px solid currentColor"
+                  }}>
+                    {!currentAgent.activeModelId ? "OWN DNA" : "SNAPSHOT DNA"}
+                  </span>
+                } />
                 <StatRow label="Mode" value={<AgentModeLabel mode={currentAgent.mode} size="sm" />} />
                 <StatRow label="Actions taken" value={currentAgent.actionsTaken} />
                 {currentAgent.lastActionAt && (
@@ -165,31 +182,38 @@ export default function AgentPage() {
                 )}
 
                 {/* Mode toggle */}
-                <div style={{ marginTop: "24px" }}>
-                  <p style={{ fontSize: "11px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>Change mode:</p>
-                  <div style={{ display: "flex", gap: "8px" }}>
+                <div style={{ marginTop: "32px", borderTop: "1px solid var(--color-border-dim)", paddingTop: "24px" }}>
+                  <p style={{ fontSize: "11px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Update Agent Protocol:</p>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     {MODES.map((mode) => (
                       <button
                         key={mode}
                         onClick={() => handleModeChange(mode)}
                         disabled={isUpdatingMode || currentAgent.mode === mode}
-                        style={{
-                          flex: 1,
-                          padding: "10px 4px",
-                          background: currentAgent.mode === mode ? "var(--color-fg)" : "transparent",
-                          color: currentAgent.mode === mode ? "var(--color-bg)" : "var(--color-fg)",
-                          border: "1px solid var(--color-fg)",
-                          fontSize: "10px",
-                          fontWeight: 700,
-                          letterSpacing: "0.08em",
-                          cursor: currentAgent.mode === mode ? "default" : "pointer",
+                        style={{ 
+                          padding: "16px", 
+                          background: currentAgent.mode === mode ? "rgba(15, 82, 186, 0.05)" : "transparent", 
+                          color: "var(--color-fg)", 
+                          border: currentAgent.mode === mode ? "2px solid var(--color-accent-primary)" : "1px solid var(--color-border-dim)", 
+                          textAlign: "left", 
+                          cursor: "pointer",
                           opacity: isUpdatingMode ? 0.6 : 1,
+                          position: "relative"
                         }}
                       >
-                        {mode}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontWeight: 700, fontSize: "12px", color: currentAgent.mode === mode ? "var(--color-accent-primary)" : "var(--color-fg)" }}>{mode}</span>
+                          {currentAgent.mode === mode && <span style={{ fontSize: "9px", fontWeight: 800, color: "var(--color-accent-primary)" }}>● ACTIVE</span>}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--color-secondary)", textTransform: "none", fontWeight: 400, lineHeight: 1.4 }}>
+                          {mode === "OBSERVE" 
+                            ? "Passive monitoring of your wallet. Indexing data to retrain and sharpen your behavioral model." 
+                            : "Active market scanning. Your agent will identify and suggest trades that align with your DNA."}
+                        </div>
                       </button>
                     ))}
                   </div>
+                  {isUpdatingMode && <p style={{ fontSize: "11px", color: "var(--color-secondary)", marginTop: "12px" }}>Updating protocol…</p>}
                 </div>
 
                 {/* Deactivate */}
@@ -208,40 +232,97 @@ export default function AgentPage() {
             {/* Action log */}
             {agentActions.length > 0 && (
               <SlideUp delay={0.1}>
-                <SharpCard>
-                  <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Action Log</p>
-                  {agentActions.map((action) => (
-                    <div key={action.id} style={{ paddingBottom: "16px", marginBottom: "16px", borderBottom: "1px solid var(--color-border-dim)" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                        <span style={{ fontSize: "12px", fontWeight: 700 }}>{action.actionType ?? "—"}</span>
-                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                          {action.confidenceScore !== null && (
-                            <span style={{ fontSize: "10px", color: "var(--color-secondary)" }}>{(action.confidenceScore * 100).toFixed(0)}%</span>
+                <SharpCard style={{ padding: "32px" }}>
+                  <p style={{ fontSize: "10px", color: "var(--color-accent-primary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: "32px", textAlign: "center" }}>
+                    — Decision Timeline —
+                  </p>
+                  
+                  <div style={{ position: "relative" }}>
+                    {/* Vertical Timeline Line */}
+                    <div style={{ position: "absolute", left: "11px", top: "0", bottom: "0", width: "1px", background: "var(--color-border-dim)", zIndex: 0 }} />
+
+                    {agentActions.map((action, i) => (
+                      <div key={action.id} style={{ position: "relative", paddingLeft: "40px", marginBottom: "32px", zIndex: 1 }}>
+                        {/* Timeline Dot */}
+                        <div style={{ 
+                          position: "absolute", 
+                          left: "0", 
+                          top: "4px", 
+                          width: "24px", 
+                          height: "24px", 
+                          borderRadius: "50%", 
+                          background: "var(--color-bg)", 
+                          border: `2px solid ${action.guardianBlocked ? "#ef4444" : action.wasExecuted ? "var(--color-accent-primary)" : "var(--color-secondary)"}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "10px",
+                          color: action.guardianBlocked ? "#ef4444" : action.wasExecuted ? "var(--color-accent-primary)" : "var(--color-secondary)"
+                        }}>
+                          {action.guardianBlocked ? "!" : i + 1}
+                        </div>
+
+                        <div style={{ background: "rgba(0,0,0,0.01)", padding: "16px", borderRadius: "8px", border: "1px solid var(--color-border-dim)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                            <div>
+                              <h3 style={{ fontFamily: "var(--font-headline)", fontSize: "20px", fontWeight: 400, color: "var(--color-fg)", margin: 0, letterSpacing: "0.02em" }}>
+                                {action.actionType ?? "UNKNOWN ACTION"}
+                              </h3>
+                              <p style={{ fontSize: "11px", color: "var(--color-secondary)", marginTop: "4px" }}>
+                                {new Date(action.createdAt).toLocaleString()}
+                              </p>
+                            </div>
+                            
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                              {action.confidenceScore !== null && (
+                                <div style={{ textAlign: "right" }}>
+                                  <div style={{ fontSize: "10px", color: "var(--color-secondary)", marginBottom: "4px" }}>Confidence</div>
+                                  <div style={{ width: "60px", height: "4px", background: "var(--color-border-dim)", borderRadius: "2px", overflow: "hidden" }}>
+                                    <div style={{ width: `${(action.confidenceScore * 100)}%`, height: "100%", background: "var(--color-accent-primary)" }} />
+                                  </div>
+                                </div>
+                              )}
+                              
+                              <span style={{ 
+                                fontSize: "11px", 
+                                fontWeight: 700,
+                                letterSpacing: "0.05em",
+                                padding: "6px 12px", 
+                                borderRadius: "4px",
+                                background: action.guardianBlocked ? "rgba(239, 68, 68, 0.1)" : action.wasExecuted ? "rgba(15, 82, 186, 0.1)" : "rgba(75, 85, 99, 0.1)",
+                                color: action.guardianBlocked ? "#ef4444" : action.wasExecuted ? "var(--color-accent-primary)" : "var(--color-secondary)",
+                                border: `1px solid currentColor`
+                              }}>
+                                {action.guardianBlocked ? "GUARDIAN BLOCKED" : action.wasExecuted ? "EXECUTED" : "SUGGESTED"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {action.decisionReasoning && (
+                            <p style={{ fontSize: "14px", color: "var(--color-fg)", lineHeight: 1.6, margin: "0 0 12px 0", fontWeight: 400 }}>
+                              {action.decisionReasoning}
+                            </p>
                           )}
-                          <span style={{ fontSize: "10px", border: "1px solid var(--color-border-dim)", padding: "2px 6px" }}>
-                            {action.guardianBlocked ? "BLOCKED" : action.wasExecuted ? "EXECUTED" : "SUGGESTED"}
-                          </span>
+
+                          {action.txHash && (
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 12px", background: "var(--color-bg)", borderRadius: "4px", border: "1px solid var(--color-border-dim)" }}>
+                              <span style={{ fontSize: "10px", color: "var(--color-secondary)", fontWeight: 600 }}>TX</span>
+                              <code style={{ fontSize: "10px", color: "var(--color-accent-primary)", wordBreak: "break-all" }}>
+                                {action.txHash}
+                              </code>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      {action.decisionReasoning && (
-                        <p style={{ fontSize: "11px", color: "var(--color-secondary)", lineHeight: 1.5 }}>
-                          {action.decisionReasoning.slice(0, 120)}
-                        </p>
-                      )}
-                      {action.txHash && (
-                        <p style={{ fontSize: "10px", color: "var(--color-secondary)", marginTop: "4px", wordBreak: "break-all" }}>
-                          tx: {action.txHash.slice(0, 20)}…
-                        </p>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
 
                   {/* Pagination */}
                   {totalPages > 1 && (
-                    <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "8px" }}>
-                      <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: "6px 12px", background: "transparent", color: "var(--color-fg)", border: "1px solid var(--color-border-dim)", fontSize: "11px", cursor: "pointer" }}>←</button>
-                      <span style={{ fontSize: "11px", color: "var(--color-secondary)", alignSelf: "center" }}>{page} / {totalPages}</span>
-                      <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: "6px 12px", background: "transparent", color: "var(--color-fg)", border: "1px solid var(--color-border-dim)", fontSize: "11px", cursor: "pointer" }}>→</button>
+                    <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "24px" }}>
+                      <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: "8px 16px", background: "transparent", color: "var(--color-fg)", border: "1px solid var(--color-border-dim)", borderRadius: "4px", fontSize: "11px", cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--color-accent-primary)"} onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--color-border-dim)"}>← Prev</button>
+                      <span style={{ fontSize: "11px", color: "var(--color-secondary)", alignSelf: "center", fontWeight: 600 }}>{page} <span style={{ opacity: 0.5 }}>/</span> {totalPages}</span>
+                      <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: "8px 16px", background: "transparent", color: "var(--color-fg)", border: "1px solid var(--color-border-dim)", borderRadius: "4px", fontSize: "11px", cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--color-accent-primary)"} onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--color-border-dim)"}>Next →</button>
                     </div>
                   )}
                 </SharpCard>

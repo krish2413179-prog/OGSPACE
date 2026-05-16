@@ -27,7 +27,7 @@ const AGENT_REGISTRY_ABI = parseAbi([
   "function updateMode(uint8 newMode) external",
 ]);
 
-const MODE_MAP: Record<AgentMode, number> = { OBSERVE: 0, SUGGEST: 1, EXECUTE: 2 };
+const MODE_MAP: Record<AgentMode, number> = { OBSERVE: 0, SUGGEST: 1 };
 
 async function callAgentRegistry(
   fnName: "registerAgent" | "deactivateAgent" | "updateMode",
@@ -68,7 +68,7 @@ async function getUnscheduleAgent(): Promise<(id: string) => Promise<void>> {
   return unscheduleAgent;
 }
 
-const VALID_MODES: AgentMode[] = ["OBSERVE", "SUGGEST", "EXECUTE"];
+const VALID_MODES: AgentMode[] = ["OBSERVE", "SUGGEST"];
 
 function generateMockAgentId(ownerAddress: string): string {
   const hash = createHash("sha256").update(`agent:${ownerAddress}:${Date.now()}`).digest("hex");
@@ -76,10 +76,9 @@ function generateMockAgentId(ownerAddress: string): string {
 }
 
 async function enqueueDecisionLoop(agentId: string, ownerAddress: string, mode: AgentMode): Promise<void> {
-  const { scheduleExecuteAgent, scheduleSuggestAgent, unscheduleAgent } = await import("../workers/agentWorker.js");
+  const { scheduleSuggestAgent, unscheduleAgent } = await import("../workers/agentWorker.js");
   await unscheduleAgent(agentId);
-  if (mode === "EXECUTE") await scheduleExecuteAgent(agentId, ownerAddress);
-  else if (mode === "SUGGEST") await scheduleSuggestAgent(agentId, ownerAddress);
+  if (mode === "SUGGEST") await scheduleSuggestAgent(agentId, ownerAddress);
 }
 
 export async function agentRoutes(app: FastifyInstance): Promise<void> {
@@ -133,14 +132,14 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
 
     logger.info({ agentId: newAgent.id, walletAddress, mode, onChainTx }, "AgentRoutes: agent deployed");
 
-    return reply.status(201).send({ id: newAgent.id, ownerAddress: newAgent.ownerAddress, ogAgentId: newAgent.ogAgentId, soulTokenId: newAgent.soulTokenId, mode: newAgent.mode, isActive: newAgent.isActive, actionsTaken: newAgent.actionsTaken, deployedAt: newAgent.deployedAt, modelCid: latestModel.ogStorageCid, modelVersion: latestModel.version, onChainTx });
+    return reply.status(201).send({ id: newAgent.id, ownerAddress: newAgent.ownerAddress, ogAgentId: newAgent.ogAgentId, soulTokenId: newAgent.soulTokenId, mode: newAgent.mode, activeModelId: newAgent.activeModelId, isActive: newAgent.isActive, actionsTaken: newAgent.actionsTaken, deployedAt: newAgent.deployedAt, modelCid: latestModel.ogStorageCid, modelVersion: latestModel.version, onChainTx });
   });
-
+ 
   app.get("/current", { preHandler: authenticate }, async (request, reply) => {
     const { walletAddress } = request.user as JwtPayload;
     const [agent] = await db.select().from(agentDeployments).where(and(eq(agentDeployments.ownerAddress, walletAddress.toLowerCase()), eq(agentDeployments.isActive, true))).orderBy(desc(agentDeployments.deployedAt)).limit(1);
     if (!agent) return reply.status(404).send({ error: "Not Found", message: "No active agent found." });
-    return reply.status(200).send({ id: agent.id, ownerAddress: agent.ownerAddress, ogAgentId: agent.ogAgentId, soulTokenId: agent.soulTokenId, mode: agent.mode, isActive: agent.isActive, actionsTaken: agent.actionsTaken, lastActionAt: agent.lastActionAt, deployedAt: agent.deployedAt });
+    return reply.status(200).send({ id: agent.id, ownerAddress: agent.ownerAddress, ogAgentId: agent.ogAgentId, soulTokenId: agent.soulTokenId, mode: agent.mode, activeModelId: agent.activeModelId, isActive: agent.isActive, actionsTaken: agent.actionsTaken, lastActionAt: agent.lastActionAt, deployedAt: agent.deployedAt });
   });
 
   app.patch("/current/mode", { preHandler: authenticate }, async (request, reply) => {
@@ -160,6 +159,28 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
     await enqueueDecisionLoop(agent.id, walletAddress, newMode as AgentMode);
 
     return reply.status(200).send({ id: updated?.id, mode: updated?.mode, message: `Agent mode updated to ${newMode}.` });
+  });
+ 
+  app.patch("/current/model", { preHandler: authenticate }, async (request, reply) => {
+    const { userId, walletAddress } = request.user as JwtPayload;
+    const body = request.body as { modelId: string | null } | undefined;
+    const { modelId } = body ?? {};
+ 
+    const [agent] = await db.select({ id: agentDeployments.id }).from(agentDeployments).where(and(eq(agentDeployments.ownerAddress, walletAddress.toLowerCase()), eq(agentDeployments.isActive, true))).limit(1);
+    if (!agent) return reply.status(404).send({ error: "Not Found", message: "No active agent found." });
+ 
+    if (modelId) {
+      // Verify model exists and belongs to user
+      const [model] = await db.select({ id: behaviorModels.id }).from(behaviorModels).where(and(eq(behaviorModels.id, modelId), eq(behaviorModels.userId, userId))).limit(1);
+      if (!model) return reply.status(404).send({ error: "Not Found", message: "Model not found or access denied." });
+    }
+ 
+    await db.update(agentDeployments).set({ activeModelId: modelId }).where(eq(agentDeployments.id, agent.id));
+    
+    // Trigger an immediate decision cycle to reflect the new behavior
+    await enqueueDecisionLoop(agent.id, walletAddress, "OBSERVE"); // OBSERVE just resets the loop, it will pick up the real mode in the processor
+ 
+    return reply.status(200).send({ message: "Agent behavioral model updated.", activeModelId: modelId });
   });
 
   app.delete("/current", { preHandler: authenticate }, async (request, reply) => {

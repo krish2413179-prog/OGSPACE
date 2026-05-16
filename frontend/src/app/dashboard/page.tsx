@@ -42,6 +42,8 @@ export default function DashboardPage() {
   const setAgentActions = useAppStore((s) => s.setAgentActions);
   const setIndexingStatus = useAppStore((s) => s.setIndexingStatus);
   const setPendingSuggestion = useAppStore((s) => s.setPendingSuggestion);
+  const selectedWalletAddress = useAppStore((s) => s.selectedWalletAddress);
+  const setSelectedWalletAddress = useAppStore((s) => s.setSelectedWalletAddress);
 
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [analyzeTarget, setAnalyzeTarget] = useState("");
@@ -57,59 +59,43 @@ export default function DashboardPage() {
     if (!jwt) router.push("/");
   }, [jwt, router]);
 
-  // Load data on mount
-  useEffect(() => {
+  const handleSwitchModel = useCallback(async (address: string | null, modelId: string | null) => {
     if (!jwt) return;
+    try {
+      await api.agents.updateModel(jwt, modelId);
+      setSelectedWalletAddress(address);
+      // Trigger reload
+    } catch (err) {
+      console.error("Failed to switch model", err);
+    }
+  }, [jwt, setSelectedWalletAddress]);
+
+  // Load data on mount and when selected address changes
+  useEffect(() => {
+    if (!jwt || !walletAddress) return;
 
     const load = async () => {
       try {
-        const [statusRes, modelRes, snapshotsRes] = await Promise.allSettled([
+        const [statusRes, snapshotsRes, agentRes] = await Promise.all([
           api.indexing.status(jwt),
-          api.models.current(jwt),
           api.models.snapshots(jwt),
+          api.agents.current(jwt).catch(() => null),
         ]);
 
-        if (statusRes.status === "fulfilled") {
-          setIndexingStatus(
-            statusRes.value.status as "PENDING" | "IN_PROGRESS" | "COMPLETE" | "FAILED",
-            statusRes.value.progress,
-            statusRes.value.totalActions
-          );
-        }
+        setIndexingStatus(
+          statusRes.status as any,
+          statusRes.progress,
+          statusRes.totalActions
+        );
 
-        if (modelRes.status === "fulfilled") {
-          const m = modelRes.value;
-          const meta = m.modelMetadata as Record<string, unknown> | null;
-          const ds = meta?.dimensionScores as Record<string, number> | undefined;
-          setCurrentModel({
-            id: m.id,
-            version: m.version,
-            ogStorageCid: m.ogStorageCid,
-            performanceScore: m.performanceScore,
-            totalActionsTrained: m.totalActionsTrained,
-            vectorDimensions: m.vectorDimensions,
-            dimensionScores: ds ? {
-              riskProfile: ds.riskProfile ?? 0,
-              timingPatterns: ds.timingPatterns ?? 0,
-              protocolPreferences: ds.protocolPreferences ?? 0,
-              assetBehavior: ds.assetBehavior ?? 0,
-              decisionContext: ds.decisionContext ?? 0,
-              compositeScore: ds.compositeScore ?? 0,
-            } : undefined,
-            modelMetadata: m.modelMetadata,
-          });
-        }
+        const allSnapshots = snapshotsRes.snapshots as any[];
+        setSnapshots(allSnapshots);
 
-        if (snapshotsRes.status === "fulfilled") {
-          setSnapshots(snapshotsRes.value.snapshots);
-        }
-
-        try {
-          const agentRes = await api.agents.current(jwt);
+        if (agentRes) {
           setCurrentAgent({
             id: agentRes.id,
             ogAgentId: agentRes.ogAgentId,
-            mode: agentRes.mode as "OBSERVE" | "SUGGEST" | "EXECUTE",
+            mode: agentRes.mode as any,
             isActive: agentRes.isActive,
             actionsTaken: agentRes.actionsTaken,
             lastActionAt: agentRes.lastActionAt ?? undefined,
@@ -117,35 +103,62 @@ export default function DashboardPage() {
           });
 
           const actionsRes = await api.agents.actions(jwt);
-          setAgentActions((actionsRes.actions as Parameters<typeof setAgentActions>[0]));
-        } catch {
-          // No agent deployed yet — that's fine
+          setAgentActions((actionsRes.actions as any));
         }
-      } catch {
-        // Silently handle load errors
+
+        // Determine which model to display
+        const activeAddress = selectedWalletAddress || walletAddress;
+        
+        if (activeAddress.toLowerCase() === walletAddress.toLowerCase()) {
+          const modelRes = await api.models.current(jwt);
+          const meta = modelRes.modelMetadata as any;
+          const ds = meta?.dimensionScores || modelRes.dimensionScores;
+          setCurrentModel({
+            ...modelRes,
+            dimensionScores: ds,
+          } as any);
+        } else {
+          // Find matching snapshot
+          const snap = allSnapshots.find(s => s.sourceAddress?.toLowerCase() === activeAddress.toLowerCase() || s.walletAddress?.toLowerCase() === activeAddress.toLowerCase());
+          if (snap) {
+            const ds = snap.dimensionScores;
+            setCurrentModel({
+              ...snap,
+              dimensionScores: ds,
+            } as any);
+          }
+        }
+      } catch (err) {
+        console.error("Dashboard load failed", err);
       }
     };
 
     void load();
-  }, [jwt, setCurrentModel, setCurrentAgent, setAgentActions, setIndexingStatus]);
-
-  if (!jwt) return null;
+  }, [jwt, walletAddress, selectedWalletAddress, setCurrentModel, setCurrentAgent, setAgentActions, setIndexingStatus]);
 
   const dims = currentModel?.dimensionScores;
 
+  if (!jwt) return null;
+
   return (
-    <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "64px 32px" }}>
+    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "64px 32px" }}>
       {/* Header */}
       <FadeIn>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "64px" }}>
           <div>
-            <h1 style={{ fontSize: "20px", fontWeight: 700, letterSpacing: "-0.01em" }}>MIRRORMIND</h1>
-            <p style={{ color: "var(--color-secondary)", fontSize: "11px", marginTop: "4px" }}>
+            <h1 style={{ fontFamily: "var(--font-headline)", fontSize: "32px", fontWeight: 400, letterSpacing: "0.02em" }}>MIRRORMIND</h1>
+            <p style={{ color: "var(--color-secondary)", fontSize: "13px", marginTop: "4px", letterSpacing: "0.05em" }}>
               {walletAddress ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : "—"}
             </p>
           </div>
           <nav style={{ display: "flex", gap: "24px", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.08em", alignItems: "center" }}>
             <Link href="/dashboard/agent">Agent</Link>
+            <Link href="/dashboard/suggestions" style={{ position: "relative" }}>
+              Suggestions
+              {pendingSuggestion && (
+                <span style={{ position: "absolute", top: "-6px", right: "-10px", width: "8px", height: "8px", background: "#ef4444", borderRadius: "50%", border: "2px solid var(--color-bg)" }} />
+              )}
+            </Link>
             <Link href="/dashboard/mint">Mint</Link>
             <Link href="/marketplace">Market</Link>
             <button
@@ -177,10 +190,10 @@ export default function DashboardPage() {
           {/* Indexing status */}
           <SlideUp delay={0.05}>
             <SharpCard>
-              <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Indexing</p>
+              <p style={{ fontSize: "12px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: "16px" }}>Network Indexing</p>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                <span style={{ fontSize: "22px", fontWeight: 700 }}>{totalActions.toLocaleString()}</span>
-                <span style={{ fontSize: "11px", border: "1px solid var(--color-border-dim)", padding: "3px 8px" }}>
+                <span style={{ fontSize: "32px", fontWeight: 700 }}>{totalActions.toLocaleString()}</span>
+                <span style={{ fontSize: "13px", border: "1px solid var(--color-border-dim)", padding: "4px 12px", fontWeight: 700 }}>
                   {indexingStatus}
                 </span>
               </div>
@@ -193,10 +206,28 @@ export default function DashboardPage() {
           {currentModel && dims && (
             <SlideUp delay={0.1}>
               <SharpCard>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
-                  <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Behavioral Model</p>
-                  <span style={{ fontSize: "28px", fontWeight: 700 }}>{formatScore(currentModel.performanceScore)}</span>
-                </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" }}>
+                    <div>
+                      <p style={{ fontSize: "12px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.15em" }}>Behavioral Model Context</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "6px" }}>
+                        <span style={{ 
+                          fontSize: "11px", 
+                          padding: "4px 10px", 
+                          borderRadius: "4px", 
+                          background: (selectedWalletAddress || walletAddress)?.toLowerCase() === walletAddress?.toLowerCase() ? "rgba(15, 82, 186, 0.1)" : "rgba(147, 51, 234, 0.1)",
+                          color: (selectedWalletAddress || walletAddress)?.toLowerCase() === walletAddress?.toLowerCase() ? "var(--color-accent-primary)" : "#9333ea",
+                          fontWeight: 700,
+                          border: "1px solid currentColor"
+                        }}>
+                          {(selectedWalletAddress || walletAddress)?.toLowerCase() === walletAddress?.toLowerCase() ? "OWN DNA" : "SNAPSHOT DNA"}
+                        </span>
+                        <span style={{ fontSize: "12px", color: "var(--color-secondary)", fontFamily: "var(--font-mono)", fontWeight: 500 }}>
+                          {(selectedWalletAddress || walletAddress)?.slice(0, 6)}…{(selectedWalletAddress || walletAddress)?.slice(-4)}
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: "36px", fontWeight: 700 }}>{formatScore(currentModel.performanceScore)}</span>
+                  </div>
                 <HorizontalBar label="Risk Profile" value={dims.riskProfile} />
                 <HorizontalBar label="Timing Patterns" value={dims.timingPatterns} />
                 <HorizontalBar label="Protocol Prefs" value={dims.protocolPreferences} />
@@ -206,76 +237,99 @@ export default function DashboardPage() {
                   <StatRow label="Version" value={`v${currentModel.version}`} />
                   <StatRow label="Actions trained" value={(currentModel.totalActionsTrained ?? 0).toLocaleString()} />
                   <StatRow label="Dimensions" value={currentModel.vectorDimensions ?? 512} />
-                  <button
-                    id="retrain-btn"
-                    onClick={async () => {
-                      if (!jwt || !currentModel) return;
-                      const btn = document.getElementById("retrain-btn");
-                      if (btn) btn.innerText = "ENQUEUING...";
-                      try {
-                        await api.models.train(jwt);
-                        if (btn) btn.innerText = "TRAINING...";
-                        
-                        const oldVersion = currentModel.version;
-                        let attempts = 0;
-                        const interval = setInterval(async () => {
-                          attempts++;
-                          if (attempts > 20) { // 60 seconds timeout
-                            clearInterval(interval);
-                            if (btn) btn.innerText = "FAILED";
-                            setTimeout(() => { if (btn) btn.innerText = "RETRAIN MODEL"; }, 3000);
-                            return;
-                          }
-                          try {
-                            const modelRes = await api.models.current(jwt);
-                            if (modelRes && modelRes.id && modelRes.version > oldVersion) {
+                  {(selectedWalletAddress || walletAddress)?.toLowerCase() !== walletAddress?.toLowerCase() && (
+                    <button
+                      onClick={() => handleSwitchModel(walletAddress, null)}
+                      style={{
+                        width: "100%",
+                        marginTop: "12px",
+                        padding: "8px",
+                        background: "var(--color-accent-primary)",
+                        color: "white",
+                        border: "none",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        letterSpacing: "0.1em",
+                        cursor: "pointer",
+                        borderRadius: "4px"
+                      }}
+                    >
+                      RESET TO MY DNA
+                    </button>
+                  )}
+
+                  {(selectedWalletAddress || walletAddress)?.toLowerCase() === walletAddress?.toLowerCase() && (
+                    <button
+                      id="retrain-btn"
+                      onClick={async () => {
+                        if (!jwt || !currentModel) return;
+                        const btn = document.getElementById("retrain-btn");
+                        if (btn) btn.innerText = "ENQUEUING...";
+                        try {
+                          await api.models.train(jwt);
+                          if (btn) btn.innerText = "TRAINING...";
+                          
+                          const oldVersion = currentModel.version;
+                          let attempts = 0;
+                          const interval = setInterval(async () => {
+                            attempts++;
+                            if (attempts > 20) { // 60 seconds timeout
                               clearInterval(interval);
-                              const m = modelRes;
-                              const meta = m.modelMetadata as Record<string, unknown> | null;
-                              const ds = meta?.dimensionScores as Record<string, number> | undefined;
-                              useAppStore.getState().setCurrentModel({
-                                id: m.id,
-                                version: m.version,
-                                ogStorageCid: m.ogStorageCid,
-                                performanceScore: m.performanceScore,
-                                totalActionsTrained: m.totalActionsTrained,
-                                vectorDimensions: m.vectorDimensions,
-                                dimensionScores: ds ? {
-                                  riskProfile: ds.riskProfile ?? 0,
-                                  timingPatterns: ds.timingPatterns ?? 0,
-                                  protocolPreferences: ds.protocolPreferences ?? 0,
-                                  assetBehavior: ds.assetBehavior ?? 0,
-                                  decisionContext: ds.decisionContext ?? 0,
-                                  compositeScore: ds.compositeScore ?? 0,
-                                } : undefined,
-                                modelMetadata: m.modelMetadata,
-                              });
-                              if (btn) btn.innerText = "RETRAIN MODEL";
+                              if (btn) btn.innerText = "FAILED";
+                              setTimeout(() => { if (btn) btn.innerText = "RETRAIN MODEL"; }, 3000);
+                              return;
                             }
-                          } catch {
-                            // Ignore 404s or errors while waiting
-                          }
-                        }, 3000);
-                      } catch (err) {
-                        if (btn) btn.innerText = "FAILED";
-                        setTimeout(() => { if (btn) btn.innerText = "RETRAIN MODEL"; }, 3000);
-                      }
-                    }}
-                    style={{
-                      width: "100%",
-                      marginTop: "16px",
-                      padding: "8px",
-                      background: "transparent",
-                      color: "var(--color-fg)",
-                      border: "1px solid var(--color-border-dim)",
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      letterSpacing: "0.1em",
-                      cursor: "pointer"
-                    }}
-                  >
-                    RETRAIN MODEL
-                  </button>
+                            try {
+                              const modelRes = await api.models.current(jwt);
+                              if (modelRes && modelRes.id && modelRes.version > oldVersion) {
+                                clearInterval(interval);
+                                const m = modelRes;
+                                const meta = m.modelMetadata as Record<string, unknown> | null;
+                                const ds = meta?.dimensionScores as Record<string, number> | undefined;
+                                useAppStore.getState().setCurrentModel({
+                                  id: m.id,
+                                  version: m.version,
+                                  ogStorageCid: m.ogStorageCid,
+                                  performanceScore: m.performanceScore,
+                                  totalActionsTrained: m.totalActionsTrained,
+                                  vectorDimensions: m.vectorDimensions,
+                                  dimensionScores: ds ? {
+                                    riskProfile: ds.riskProfile ?? 0,
+                                    timingPatterns: ds.timingPatterns ?? 0,
+                                    protocolPreferences: ds.protocolPreferences ?? 0,
+                                    assetBehavior: ds.assetBehavior ?? 0,
+                                    decisionContext: ds.decisionContext ?? 0,
+                                    compositeScore: ds.compositeScore ?? 0,
+                                  } : undefined,
+                                  modelMetadata: m.modelMetadata,
+                                });
+                                if (btn) btn.innerText = "RETRAIN MODEL";
+                              }
+                            } catch {
+                              // Ignore 404s or errors while waiting
+                            }
+                          }, 3000);
+                        } catch (err) {
+                          if (btn) btn.innerText = "FAILED";
+                          setTimeout(() => { if (btn) btn.innerText = "RETRAIN MODEL"; }, 3000);
+                        }
+                      }}
+                      style={{
+                        width: "100%",
+                        marginTop: "16px",
+                        padding: "8px",
+                        background: "transparent",
+                        color: "var(--color-fg)",
+                        border: "1px solid var(--color-border-dim)",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        letterSpacing: "0.1em",
+                        cursor: "pointer"
+                      }}
+                    >
+                      RETRAIN MODEL
+                    </button>
+                  )}
                 </div>
               </SharpCard>
             </SlideUp>
@@ -343,6 +397,59 @@ export default function DashboardPage() {
         {/* Right column */}
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
 
+          {/* Analyze Any Wallet (TOP) */}
+          <SlideUp delay={0.1}>
+            <SharpCard style={{ border: "1px solid var(--color-accent-primary)", background: "var(--color-accent-glow)" }}>
+              <p style={{ fontSize: "10px", color: "var(--color-accent-primary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Analyze Any Wallet</p>
+              <p style={{ fontSize: "11px", color: "var(--color-fg)", marginBottom: "16px" }}>
+                Generate a one-time behavioral snapshot of any public address on 0G Galileo.
+              </p>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="text"
+                  placeholder="0x..."
+                  value={analyzeTarget}
+                  onChange={(e) => setAnalyzeTarget(e.target.value)}
+                  style={{
+                    flex: 1,
+                    background: "var(--color-bg)",
+                    border: "1px solid var(--color-border-dim)",
+                    color: "var(--color-fg)",
+                    padding: "10px",
+                    fontSize: "12px",
+                    fontFamily: "var(--font-mono)",
+                    borderRadius: "4px"
+                  }}
+                />
+                <button
+                  className="btn-primary"
+                  onClick={async () => {
+                    if (!jwt || !analyzeTarget) return;
+                    setAnalyzing(true);
+                    setAnalyzeError("");
+                    try {
+                      const res = await api.models.analyze(jwt, analyzeTarget);
+                      const snapRes = await api.models.snapshots(jwt);
+                      setSnapshots(snapRes.snapshots);
+                      setAnalyzeTarget("");
+                    } catch (err: any) {
+                      setAnalyzeError(err.message || "Analysis failed");
+                    } finally {
+                      setAnalyzing(false);
+                    }
+                  }}
+                  disabled={analyzing || !analyzeTarget}
+                  style={{ padding: "0 20px" }}
+                >
+                  {analyzing ? "..." : "ANALYZE"}
+                </button>
+              </div>
+              {analyzeError && (
+                <p style={{ fontSize: "11px", color: "red", marginTop: "8px" }}>{analyzeError}</p>
+              )}
+            </SharpCard>
+          </SlideUp>
+
           {/* Agent status */}
           <SlideUp delay={0.15}>
             <SharpCard>
@@ -357,8 +464,8 @@ export default function DashboardPage() {
                     <StatRow label="Last action" value={new Date(currentAgent.lastActionAt).toLocaleTimeString()} />
                   )}
                   <div style={{ marginTop: "12px" }}>
-                    <Link href="/dashboard/agent" style={{ fontSize: "11px", textDecoration: "none", border: "1px solid var(--color-border-dim)", padding: "6px 12px" }}>
-                      MANAGE →
+                    <Link href="/dashboard/agent" style={{ fontSize: "13px", fontWeight: 700, textDecoration: "none", border: "1px solid var(--color-fg)", padding: "8px 16px" }}>
+                      MANAGE AGENT →
                     </Link>
                   </div>
                 </>
@@ -378,21 +485,22 @@ export default function DashboardPage() {
           {/* Pending suggestion */}
           {pendingSuggestion && (
             <SlideUp delay={0.2}>
-              <SharpCard style={{ borderColor: "var(--color-accent-primary)" }}>
-                <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "12px" }}>Agent Suggestion</p>
-                <p style={{ fontSize: "13px", marginBottom: "8px" }}>
-                  <strong>{pendingSuggestion.action.actionType}</strong> via {pendingSuggestion.action.protocol}
-                </p>
-                <p style={{ fontSize: "12px", color: "var(--color-secondary)", marginBottom: "16px" }}>
-                  ${pendingSuggestion.action.amountUsd.toFixed(2)} · {(pendingSuggestion.confidence * 100).toFixed(0)}% confidence
-                </p>
-                <p style={{ fontSize: "11px", color: "var(--color-secondary)", marginBottom: "16px", lineHeight: 1.6 }}>
-                  {pendingSuggestion.reasoning.slice(0, 120)}…
-                </p>
-                <div style={{ display: "flex", gap: "12px" }}>
-                  <button className="btn-primary" onClick={() => setPendingSuggestion(null)} style={{ flex: 1, padding: "8px" }}>APPROVE</button>
-                  <button onClick={() => setPendingSuggestion(null)} style={{ flex: 1, padding: "8px", background: "rgba(0,0,0,0.05)", color: "var(--color-fg)", border: "1px solid var(--color-border)", fontSize: "11px", fontWeight: 700, letterSpacing: "0.05em" }}>REJECT</button>
+              <SharpCard style={{ 
+                borderColor: "var(--color-accent-primary)", 
+                background: "linear-gradient(135deg, var(--color-accent-glow), rgba(15, 82, 186, 0.05))",
+                boxShadow: "0 4px 20px rgba(15, 82, 186, 0.1)",
+                cursor: "pointer"
+              }} onClick={() => router.push("/dashboard/suggestions")}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                  <p style={{ fontSize: "12px", color: "var(--color-accent-primary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", margin: 0 }}>Action Suggestion</p>
+                  <span style={{ fontSize: "10px", color: "var(--color-accent-primary)", fontWeight: 700 }}>EVALUATE →</span>
                 </div>
+                <h3 style={{ fontFamily: "var(--font-headline)", fontSize: "22px", fontWeight: 400, color: "var(--color-fg)", marginBottom: "8px" }}>
+                  {pendingSuggestion.action.actionType} {pendingSuggestion.action.asset}
+                </h3>
+                <p style={{ fontSize: "13px", color: "var(--color-fg)", opacity: 0.8, marginBottom: "0", lineHeight: 1.5 }}>
+                  {pendingSuggestion.reasoning.slice(0, 100)}...
+                </p>
               </SharpCard>
             </SlideUp>
           )}
@@ -400,100 +508,27 @@ export default function DashboardPage() {
           {/* 0G Storage proof */}
           {currentModel && (
             <SlideUp delay={0.25}>
-              <SharpCard>
+              <SharpCard style={{ position: "relative", overflow: "hidden", borderLeft: "4px solid var(--color-accent-primary)" }}>
+                <div style={{ position: "absolute", top: 0, right: 0, padding: "8px", background: "rgba(15, 82, 186, 0.1)", color: "var(--color-accent-primary)", fontSize: "9px", fontWeight: 800, letterSpacing: "0.1em" }}>SECURED</div>
                 <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "12px" }}>0G Storage Proof</p>
-                <p style={{ fontSize: "11px", wordBreak: "break-all", color: "var(--color-secondary)", marginBottom: "12px" }}>
-                  {truncate(currentModel.ogStorageCid, 40)}
-                </p>
+                <div style={{ padding: "12px", background: "rgba(15, 82, 186, 0.03)", border: "1px solid var(--color-border-dim)", borderRadius: "4px", marginBottom: "16px", fontFamily: "var(--font-mono)", fontSize: "12px", wordBreak: "break-all", color: "var(--color-accent-primary)", fontWeight: 500 }}>
+                  {currentModel.ogStorageCid}
+                </div>
                 <a
                   href={`https://storagescan-galileo.0g.ai/file/${currentModel.ogStorageCid}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ fontSize: "11px", textDecoration: "none", border: "1px solid var(--color-border-dim)", padding: "6px 12px" }}
+                  className="btn-primary"
+                  style={{ display: "block", textDecoration: "none", textAlign: "center", padding: "10px", fontSize: "11px", letterSpacing: "0.1em", background: "var(--color-accent-primary)", color: "white", border: "none", fontWeight: 700 }}
                 >
-                  VERIFY ON 0G →
+                  VERIFY ON 0G SCAN →
                 </a>
               </SharpCard>
             </SlideUp>
           )}
 
-          {/* Recent agent actions */}
-          {agentActions.length > 0 && (
-            <SlideUp delay={0.3}>
-              <SharpCard>
-                <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Recent Actions</p>
-                {agentActions.slice(0, 5).map((action) => (
-                  <div key={action.id} style={{ paddingBottom: "12px", marginBottom: "12px", borderBottom: "1px solid var(--color-border-dim)" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                      <span style={{ fontSize: "12px", fontWeight: 700 }}>{action.actionType ?? "—"}</span>
-                      <span style={{ fontSize: "10px", color: action.wasExecuted ? "var(--color-fg)" : "var(--color-secondary)" }}>
-                        {action.guardianBlocked ? "BLOCKED" : action.wasExecuted ? "EXECUTED" : "SUGGESTED"}
-                      </span>
-                    </div>
-                    {action.decisionReasoning && (
-                      <p style={{ fontSize: "11px", color: "var(--color-secondary)", lineHeight: 1.5 }}>
-                        {action.decisionReasoning.slice(0, 80)}…
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </SharpCard>
-            </SlideUp>
-          )}
 
-          {/* Analyze Any Wallet */}
-          <SlideUp delay={0.35}>
-            <SharpCard>
-              <p style={{ fontSize: "10px", color: "var(--color-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "16px" }}>Analyze Any Wallet</p>
-              <p style={{ fontSize: "11px", color: "var(--color-secondary)", marginBottom: "16px" }}>
-                Generate a one-time behavioral snapshot of any public address on 0G Galileo.
-              </p>
-              <input
-                type="text"
-                placeholder="0x..."
-                value={analyzeTarget}
-                onChange={(e) => setAnalyzeTarget(e.target.value)}
-                style={{
-                  width: "100%",
-                  background: "transparent",
-                  border: "1px solid var(--color-border-dim)",
-                  color: "var(--color-fg)",
-                  padding: "10px",
-                  fontSize: "12px",
-                  marginBottom: "12px",
-                  fontFamily: "var(--font-mono)",
-                }}
-              />
-              {analyzeError && (
-                <p style={{ fontSize: "11px", color: "red", marginBottom: "12px" }}>{analyzeError}</p>
-              )}
-              <button
-                className="btn-primary"
-                onClick={async () => {
-                  if (!jwt || !analyzeTarget) return;
-                  setAnalyzing(true);
-                  setAnalyzeError("");
-                  try {
-                    const res = await api.models.analyze(jwt, analyzeTarget);
-                    // Refresh snapshots
-                    const snapRes = await api.models.snapshots(jwt);
-                    setSnapshots(snapRes.snapshots);
-                    setAnalyzeTarget("");
-                  } catch (err: any) {
-                    setAnalyzeError(err.message || "Analysis failed");
-                  } finally {
-                    setAnalyzing(false);
-                  }
-                }}
-                disabled={analyzing || !analyzeTarget}
-                style={{ width: "100%", marginTop: "8px" }}
-              >
-                {analyzing ? "ANALYZING..." : "ANALYZE WALLET"}
-              </button>
-            </SharpCard>
-          </SlideUp>
-
-          {/* Snapshots List */}
+          {/* Snapshots List (Bottom of sidebar) */}
           {snapshots.length > 0 && (
             <SlideUp delay={0.4}>
               <SharpCard>
@@ -515,9 +550,18 @@ export default function DashboardPage() {
                           <span style={{ fontSize: "9px", border: "1px solid var(--color-border-dim)", padding: "2px 4px", textTransform: "uppercase" }}>SNAPSHOT</span>
                         </div>
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--color-secondary)" }}>
-                        <span>CID: {truncate(snap.ogStorageCid, 12)}</span>
-                        <span>{snap.totalActionsTrained} txs</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <span style={{ fontSize: "11px", color: "var(--color-secondary)" }}>{snap.totalActionsTrained} txs</span>
+                        {selectedWalletAddress?.toLowerCase() !== snap.sourceAddress?.toLowerCase() ? (
+                          <button
+                            onClick={() => handleSwitchModel(snap.sourceAddress, snap.id)}
+                            style={{ fontSize: "10px", color: "var(--color-accent-primary)", fontWeight: 700, background: "transparent", border: "1px solid var(--color-accent-primary)", padding: "4px 8px", cursor: "pointer", borderRadius: "4px" }}
+                          >
+                            USE THIS DNA
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: "10px", color: "var(--color-accent-primary)", fontWeight: 700 }}>ACTIVE CONTEXT</span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -557,7 +601,7 @@ export default function DashboardPage() {
             >
               ✕
             </button>
-            <h2 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "16px", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", color: "var(--color-accent-primary)" }}>
+            <h2 style={{ fontFamily: "var(--font-headline)", fontSize: "16px", fontWeight: 400, marginBottom: "16px", letterSpacing: "0.05em", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", color: "var(--color-accent-primary)" }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ animation: "spin 1s linear infinite" }}>
                 <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray="16 32" />
@@ -575,6 +619,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

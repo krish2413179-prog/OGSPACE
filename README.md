@@ -8,6 +8,17 @@ Built for the **0G APAC Hackathon 2026**, targeting Track 1 (Agent Infrastructur
 
 ---
 
+## Strategic Agent Modes
+
+MirrorMind agents operate in a dual-mode strategic framework designed for high-fidelity mirroring and actionable market intelligence:
+
+*   **OBSERVE Mode**: The agent passively monitors the user's wallet. It indexes on-chain actions to continuously retrain and sharpen the behavioral model (DNA) on 0G Storage. This ensures the agent's decision logic stays perfectly aligned with the user's evolving trading style.
+*   **SUGGEST Mode**: The agent actively monitors global market conditions and DeFi protocols. It identifies high-confidence trading opportunities that match the user's historical risk/reward DNA and pushes them to a dedicated **Suggestions Feed** for human review and one-click execution.
+
+This dual-mode approach prioritizes **human-in-the-loop** intelligence over blind automation, leveraging the 0G Chain for verifiable agent state and decisions.
+
+---
+
 ## Architecture
 
 ```
@@ -70,13 +81,11 @@ Built for the **0G APAC Hackathon 2026**, targeting Track 1 (Agent Infrastructur
 | Compute | 0G Compute (decentralized inference) |
 
 ---
-
 ## Prerequisites
 
 - [Node.js 20+](https://nodejs.org/)
 - [Python 3.11+](https://www.python.org/)
 - [Foundry](https://book.getfoundry.sh/getting-started/installation)
-- [Docker + Docker Compose](https://docs.docker.com/get-docker/)
 
 ---
 
