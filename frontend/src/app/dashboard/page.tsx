@@ -561,7 +561,21 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                        <span style={{ fontSize: "11px", color: "var(--color-secondary)" }}>{snap.totalActionsTrained} txs</span>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                          <span style={{ fontSize: "11px", color: "var(--color-secondary)" }}>{snap.totalActionsTrained} txs</span>
+                          <a
+                            href={
+                              snap.ogStorageSeq 
+                                ? `https://storagescan-galileo.0g.ai/submission/${snap.ogStorageSeq}`
+                                : `https://storagescan-galileo.0g.ai/tx/${snap.ogStorageTx}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ fontSize: "9px", color: "var(--color-accent-primary)", textDecoration: "none", borderBottom: "1px solid currentColor" }}
+                          >
+                            VERIFY
+                          </a>
+                        </div>
                         {selectedWalletAddress?.toLowerCase() !== snap.sourceAddress?.toLowerCase() ? (
                           <button
                             onClick={() => handleSwitchModel(snap.sourceAddress, snap.id)}

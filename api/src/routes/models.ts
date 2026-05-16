@@ -153,7 +153,16 @@ export async function modelRoutes(app: FastifyInstance): Promise<void> {
 
     // Check for existing snapshot of this address by this user (don't duplicate)
     const [existing] = await db
-      .select({ id: behaviorModels.id, ogStorageCid: behaviorModels.ogStorageCid, performanceScore: behaviorModels.performanceScore, modelMetadata: behaviorModels.modelMetadata, totalActionsTrained: behaviorModels.totalActionsTrained, createdAt: behaviorModels.createdAt })
+      .select({ 
+        id: behaviorModels.id, 
+        ogStorageCid: behaviorModels.ogStorageCid, 
+        ogStorageTx: behaviorModels.ogStorageTx,
+        ogStorageSeq: behaviorModels.ogStorageSeq,
+        performanceScore: behaviorModels.performanceScore, 
+        modelMetadata: behaviorModels.modelMetadata, 
+        totalActionsTrained: behaviorModels.totalActionsTrained, 
+        createdAt: behaviorModels.createdAt 
+      })
       .from(behaviorModels)
       .where(and(
         eq(behaviorModels.userId, userId),
@@ -173,6 +182,8 @@ export async function modelRoutes(app: FastifyInstance): Promise<void> {
           sourceAddress: targetAddress,
           modelType: "snapshot",
           ogStorageCid: existing.ogStorageCid,
+          ogStorageTx: existing.ogStorageTx,
+          ogStorageSeq: existing.ogStorageSeq,
           performanceScore: existing.performanceScore ? parseFloat(existing.performanceScore) : null,
           totalActionsTrained: existing.totalActionsTrained,
           dimensionScores: meta ? computeDimensionScores(meta) : null,
@@ -318,6 +329,8 @@ export async function modelRoutes(app: FastifyInstance): Promise<void> {
         sourceAddress: targetAddress,
         modelType: "snapshot",
         ogStorageCid,
+        ogStorageTx,
+        ogStorageSeq,
         performanceScore: mlResponse.performance_score,
         totalActionsTrained: actions.length,
         dimensionScores: dimScores,

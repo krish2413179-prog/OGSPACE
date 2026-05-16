@@ -108,23 +108,29 @@ async function uploadToOgStorage(
     try {
       const receipt = await provider.waitForTransaction(txHash as string);
       if (receipt) {
-        // The Flow contract emits NewFile(sender, root, seq, size)
-        // We look for an event where the second topic is the rootHash
+        // NewFile(address indexed sender, bytes32 indexed root, uint256 seq, uint256 size)
+        // Event signature hash: 0x1801f92e21c33f20a6f88d752495bb38ec291e0d4734316d3e35a90940562e9a
+        const newFileEventSig = "0x1801f92e21c33f20a6f88d752495bb38ec291e0d4734316d3e35a90940562e9a";
+        
         for (const log of receipt.logs) {
-          if (log.topics.includes(rootHash)) {
-            // Usually the sequence is the 3rd parameter (data or topic)
-            // For NewFile, it's often in the data if not indexed
-            // But let's try to parse it safely. 
-            // In 0G, it's typically log.data or one of the topics.
-            // A quick way is to check the 3rd topic or the start of the data.
-            try {
-              // Extract sequence from log data (uint256)
-              const seq = ethers.toQuantity(ethers.dataSlice(log.data, 0, 32));
-              sequenceId = ethers.toNumber(seq).toString();
+          if (log.topics[0] === newFileEventSig) {
+            // Check if this log is for our rootHash
+            // topics[2] is the indexed root
+            const logRoot = log.topics[2]?.toLowerCase();
+            const normalizedRoot = (rootHash as string).startsWith("0x") ? (rootHash as string).toLowerCase() : `0x${(rootHash as string).toLowerCase()}`;
+            
+            if (logRoot === normalizedRoot) {
+              // seq is the first uint256 in data (32 bytes)
+              const seqHex = ethers.dataSlice(log.data, 0, 32);
+              sequenceId = ethers.toBigInt(seqHex).toString();
+              logger.info({ sequenceId, txHash }, "0G Storage: successfully extracted sequenceId from log");
               break;
-            } catch { /* ignore */ }
+            }
           }
         }
+      }
+      if (!sequenceId) {
+        logger.warn({ txHash, logsCount: receipt?.logs.length }, "0G Storage: could not find NewFile event for rootHash in receipt");
       }
     } catch (err) {
       logger.warn({ err, txHash }, "0G Storage: failed to wait for receipt or parse sequenceId");
