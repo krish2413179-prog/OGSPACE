@@ -2,7 +2,7 @@ services:
   - type: web
     name: ogspace-1
     env: node
-    buildCommand: cd api && npm install && npm run build
+    buildCommand: cd api && npm run build
     startCommand: cd api && node dist/server.js
     envVars:
       - key: NODE_ENV
@@ -11,7 +11,7 @@ services:
   - type: web
     name: ogspace
     env: python
-    buildCommand: pip install -r ml/requirements.txt
+    buildCommand: ":"
     startCommand: uvicorn ml.main:app --host 0.0.0.0 --port 10000
     envVars:
       - key: PYTHONPATH
