@@ -65,6 +65,7 @@ export async function buildApp() {
     }
   });
 
+  app.get("/", async () => ({ status: "alive", service: "MirrorMind API" }));
   app.get("/health", async () => ({ status: "ok", timestamp: new Date().toISOString() }));
 
   const { authRoutes, userRoutes } = await import("./routes/auth.js");
@@ -90,17 +91,19 @@ export async function start() {
 
   try {
     const port = parseInt(process.env.PORT ?? "3001", 10);
-    const host = process.env.HOST ?? "0.0.0.0";
-    await app.listen({ port, host });
-    console.log(`MirrorMind API listening on ${host}:${port}`);
+    const host = "0.0.0.0";
+    
+    app.log.info(`MirrorMind API: attempting to listen on ${host}:${port}...`);
+    const address = await app.listen({ port, host });
+    app.log.info(`MirrorMind API: successfully listening at ${address}`);
 
     setImmediate(async () => {
       try {
         const { startAllWorkers } = await import("./workers/index.js");
         startAllWorkers(broadcast);
-        console.log("BullMQ workers started");
+        app.log.info("BullMQ workers initialized");
       } catch (e) {
-        console.error("Workers failed:", e);
+        app.log.error(e, "Workers failed to initialize");
       }
     });
   } catch (err) {
