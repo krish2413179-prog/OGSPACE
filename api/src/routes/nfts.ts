@@ -205,4 +205,48 @@ export async function nftRoutes(app: FastifyInstance): Promise<void> {
 
     return reply.status(200).send(updated);
   });
+
+  /**
+   * POST /nfts/admin/list
+   * Admin-only: update listing status for any NFT using ADMIN_SECRET.
+   * Used to sync already-minted NFTs whose listing status was not set correctly.
+   */
+  app.post("/admin/list", async (request, reply) => {
+    const adminSecret = process.env.ADMIN_SECRET ?? "mirrormind-admin-2024";
+    const authHeader = request.headers["x-admin-secret"];
+    if (authHeader !== adminSecret) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const body = request.body as {
+      tokenId: number;
+      isRentable?: boolean;
+      rentalPricePerDay?: string;
+      isForSale?: boolean;
+      salePrice?: string;
+      performanceScore?: number;
+      totalActionsTrained?: number;
+    };
+
+    if (!body.tokenId) {
+      return reply.status(400).send({ error: "tokenId is required" });
+    }
+
+    const [updated] = await db
+      .update(soulNfts)
+      .set({
+        isRentable: body.isRentable ?? undefined,
+        rentalPricePerDay: body.rentalPricePerDay ?? undefined,
+        isForSale: body.isForSale ?? undefined,
+        salePrice: body.salePrice ?? undefined,
+        performanceScore: body.performanceScore != null ? body.performanceScore.toFixed(2) : undefined,
+        totalActionsTrained: body.totalActionsTrained ?? undefined,
+      })
+      .where(eq(soulNfts.tokenId, body.tokenId))
+      .returning();
+
+    if (!updated) return reply.status(404).send({ error: "NFT not found" });
+    logger.info({ tokenId: body.tokenId }, "Admin: NFT listing status updated");
+    return reply.status(200).send(updated);
+  });
 }
