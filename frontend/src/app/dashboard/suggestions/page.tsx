@@ -113,7 +113,7 @@ export default function SuggestionsPage() {
                     <div>
                       <h3 style={{ fontFamily: "var(--font-headline)", fontSize: "24px", fontWeight: 400, color: "var(--color-accent-primary)", margin: 0, letterSpacing: "0.02em" }}>{action.actionType}</h3>
                       <p style={{ fontSize: "11px", color: "var(--color-secondary)", marginTop: "4px" }}>
-                        SIGNAL DETECTED: {new Date(action.createdAt).toLocaleString()}
+                        SIGNAL DETECTED: {action.createdAt ? new Date(action.createdAt).toLocaleString() : "—"}
                       </p>
                     </div>
                     <span style={{ fontSize: "10px", fontWeight: 800, padding: "4px 10px", border: "1px solid var(--color-accent-primary)", color: "var(--color-accent-primary)" }}>PENDING REVIEW</span>

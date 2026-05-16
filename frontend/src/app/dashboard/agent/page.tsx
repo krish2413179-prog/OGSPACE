@@ -268,9 +268,9 @@ export default function AgentPage() {
                               <h3 style={{ fontFamily: "var(--font-headline)", fontSize: "20px", fontWeight: 400, color: "var(--color-fg)", margin: 0, letterSpacing: "0.02em" }}>
                                 {action.actionType ?? "UNKNOWN ACTION"}
                               </h3>
-                              <p style={{ fontSize: "11px", color: "var(--color-secondary)", marginTop: "4px" }}>
-                                {new Date(action.createdAt).toLocaleString()}
-                              </p>
+                                <p style={{ fontSize: "11px", color: "var(--color-secondary)", marginTop: "4px" }}>
+                                  {action.createdAt ? new Date(action.createdAt).toLocaleString() : "—"}
+                                </p>
                             </div>
                             
                             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
