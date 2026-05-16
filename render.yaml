@@ -3,8 +3,9 @@ services:
   - type: web
     name: mirrormind-api
     env: node
-    buildCommand: npm install && npm run build --workspace @mirrormind/api
-    startCommand: npm run start --workspace @mirrormind/api
+    rootDir: .
+    buildCommand: npm run build:api
+    startCommand: npm run start:api
     envVars:
       - key: PORT
         value: 10000
@@ -15,6 +16,7 @@ services:
   - type: web
     name: mirrormind-ml
     env: python
+    rootDir: .
     buildCommand: pip install -r ml/requirements.txt
     startCommand: uvicorn ml.main:app --host 0.0.0.0 --port $PORT
     envVars:
