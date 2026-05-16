@@ -43,10 +43,20 @@ async function callAgentRegistry(
     return null;
   }
 
+  const ogChain = {
+    id: 16602,
+    name: "0G Galileo",
+    network: "og-galileo",
+    nativeCurrency: { name: "0G", symbol: "A0GI", decimals: 18 },
+    rpcUrls: { default: { http: [rpcUrl] }, public: { http: [rpcUrl] } },
+    testnet: true,
+  };
+
   try {
     const account = privateKeyToAccount(privateKey);
-    const publicClient = createPublicClient({ transport: http(rpcUrl) });
-    const walletClient = createWalletClient({ account, transport: http(rpcUrl) });
+    const publicClient = createPublicClient({ chain: ogChain as any, transport: http(rpcUrl) });
+    const walletClient = createWalletClient({ account, chain: ogChain as any, transport: http(rpcUrl) });
+    
     const { request } = await publicClient.simulateContract({
       address: registryAddress,
       abi: AGENT_REGISTRY_ABI,
