@@ -62,14 +62,20 @@ export async function fetchWalletTransactionHashes(
     const url = `https://chainscan-galileo.0g.ai/open/api?module=account&action=txlist&address=${walletAddress}&startblock=${fromBlock}&endblock=${toBlock}&sort=asc`;
     
     // Log intent
-    console.log(`Indexer: Fetching via 0G API...`);
+    console.log(`Indexer: Fetching via 0G API for ${walletAddress}...`);
 
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       throw new Error(`0G API responded with status: ${response.status}`);
     }
 
     const data = await response.json() as any;
+    console.log(`Indexer: API response received, status: ${data.status}`);
     
     // Etherscan-compatible APIs return status "1" for OK and "0" for No transactions found
     if (data.status !== "1" && data.message !== "No transactions found") {
