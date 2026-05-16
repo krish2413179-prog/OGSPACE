@@ -1,0 +1,746 @@
+{
+  "id": "8528eaf1-a596-47bc-af86-4749eb70beb6",
+  "prevId": "f9c661ad-58c1-483a-ace3-e6e0e34092ea",
+  "version": "6",
+  "dialect": "postgresql",
+  "tables": {
+    "public.agent_actions": {
+      "name": "agent_actions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "agent_id": {
+          "name": "agent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action_type": {
+          "name": "action_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decision_reasoning": {
+          "name": "decision_reasoning",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "confidence_score": {
+          "name": "confidence_score",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "was_executed": {
+          "name": "was_executed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "guardian_blocked": {
+          "name": "guardian_blocked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "tx_hash": {
+          "name": "tx_hash",
+          "type": "varchar(66)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "og_decision_cid": {
+          "name": "og_decision_cid",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_overrode": {
+          "name": "user_overrode",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_agent_actions_agent_id": {
+          "name": "idx_agent_actions_agent_id",
+          "columns": [
+            "agent_id"
+          ],
+          "isUnique": false
+        },
+        "idx_agent_actions_created_at": {
+          "name": "idx_agent_actions_created_at",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "agent_actions_agent_id_agent_deployments_id_fk": {
+          "name": "agent_actions_agent_id_agent_deployments_id_fk",
+          "tableFrom": "agent_actions",
+          "tableTo": "agent_deployments",
+          "columnsFrom": [
+            "agent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.agent_deployments": {
+      "name": "agent_deployments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_address": {
+          "name": "owner_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "og_agent_id": {
+          "name": "og_agent_id",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "soul_token_id": {
+          "name": "soul_token_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "soul_source_address": {
+          "name": "soul_source_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mode": {
+          "name": "mode",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'OBSERVE'"
+        },
+        "active_model_id": {
+          "name": "active_model_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "actions_taken": {
+          "name": "actions_taken",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "last_action_at": {
+          "name": "last_action_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deployed_at": {
+          "name": "deployed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "agent_deployments_active_model_id_behavior_models_id_fk": {
+          "name": "agent_deployments_active_model_id_behavior_models_id_fk",
+          "tableFrom": "agent_deployments",
+          "tableTo": "behavior_models",
+          "columnsFrom": [
+            "active_model_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "agent_deployments_og_agent_id_unique": {
+          "name": "agent_deployments_og_agent_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "og_agent_id"
+          ]
+        }
+      }
+    },
+    "public.behavior_models": {
+      "name": "behavior_models",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "wallet_address": {
+          "name": "wallet_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "og_storage_cid": {
+          "name": "og_storage_cid",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "og_storage_tx": {
+          "name": "og_storage_tx",
+          "type": "varchar(66)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "og_storage_seq": {
+          "name": "og_storage_seq",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total_actions_trained": {
+          "name": "total_actions_trained",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "performance_score": {
+          "name": "performance_score",
+          "type": "numeric(6, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vector_dimensions": {
+          "name": "vector_dimensions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 512
+        },
+        "model_metadata": {
+          "name": "model_metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_current": {
+          "name": "is_current",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "model_type": {
+          "name": "model_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'own'"
+        },
+        "source_address": {
+          "name": "source_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_behavior_models_user_id": {
+          "name": "idx_behavior_models_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        },
+        "idx_behavior_models_type": {
+          "name": "idx_behavior_models_type",
+          "columns": [
+            "model_type"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "behavior_models_user_id_users_id_fk": {
+          "name": "behavior_models_user_id_users_id_fk",
+          "tableFrom": "behavior_models",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.marketplace_transactions": {
+      "name": "marketplace_transactions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "token_id": {
+          "name": "token_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "transaction_type": {
+          "name": "transaction_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seller_address": {
+          "name": "seller_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "buyer_address": {
+          "name": "buyer_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_eth": {
+          "name": "price_eth",
+          "type": "numeric(20, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rental_duration_days": {
+          "name": "rental_duration_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tx_hash": {
+          "name": "tx_hash",
+          "type": "varchar(66)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_marketplace_transactions_token_id": {
+          "name": "idx_marketplace_transactions_token_id",
+          "columns": [
+            "token_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
+    },
+    "public.soul_nfts": {
+      "name": "soul_nfts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "token_id": {
+          "name": "token_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "wallet_address": {
+          "name": "wallet_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model_id": {
+          "name": "model_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "og_storage_cid": {
+          "name": "og_storage_cid",
+          "type": "varchar(200)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mint_tx": {
+          "name": "mint_tx",
+          "type": "varchar(66)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "performance_score": {
+          "name": "performance_score",
+          "type": "numeric(6, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total_actions_trained": {
+          "name": "total_actions_trained",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_rentable": {
+          "name": "is_rentable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "rental_price_per_day": {
+          "name": "rental_price_per_day",
+          "type": "numeric(20, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_for_sale": {
+          "name": "is_for_sale",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "sale_price": {
+          "name": "sale_price",
+          "type": "numeric(20, 8)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "times_rented": {
+          "name": "times_rented",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "soul_nfts_model_id_behavior_models_id_fk": {
+          "name": "soul_nfts_model_id_behavior_models_id_fk",
+          "tableFrom": "soul_nfts",
+          "tableTo": "behavior_models",
+          "columnsFrom": [
+            "model_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "soul_nfts_token_id_unique": {
+          "name": "soul_nfts_token_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_id"
+          ]
+        }
+      }
+    },
+    "public.users": {
+      "name": "users",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "wallet_address": {
+          "name": "wallet_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ens_name": {
+          "name": "ens_name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "last_seen": {
+          "name": "last_seen",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "users_wallet_address_unique": {
+          "name": "users_wallet_address_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "wallet_address"
+          ]
+        }
+      }
+    },
+    "public.wallet_actions": {
+      "name": "wallet_actions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "wallet_address": {
+          "name": "wallet_address",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chain_id": {
+          "name": "chain_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tx_hash": {
+          "name": "tx_hash",
+          "type": "varchar(66)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action_type": {
+          "name": "action_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "protocol": {
+          "name": "protocol",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asset_in": {
+          "name": "asset_in",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asset_out": {
+          "name": "asset_out",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount_usd": {
+          "name": "amount_usd",
+          "type": "numeric(20, 6)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gas_used": {
+          "name": "gas_used",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "block_number": {
+          "name": "block_number",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "block_timestamp": {
+          "name": "block_timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "raw_data": {
+          "name": "raw_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "indexed_at": {
+          "name": "indexed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_wallet_actions_user_id": {
+          "name": "idx_wallet_actions_user_id",
+          "columns": [
+            "user_id"
+          ],
+          "isUnique": false
+        },
+        "idx_wallet_actions_block_timestamp": {
+          "name": "idx_wallet_actions_block_timestamp",
+          "columns": [
+            "block_timestamp"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "wallet_actions_user_id_users_id_fk": {
+          "name": "wallet_actions_user_id_users_id_fk",
+          "tableFrom": "wallet_actions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "wallet_actions_tx_hash_unique": {
+          "name": "wallet_actions_tx_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tx_hash"
+          ]
+        }
+      }
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
